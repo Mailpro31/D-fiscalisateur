@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Test de bout en bout — OCR local + classifieur</title>
+</head>
+<body>
+  <!-- Ce test dessine un faux décompte de charges sur un canvas, le passe à
+       l'OCR local (fichiers vendor/ générés par `npm install`), puis au
+       classifieur. Résultat JSON écrit dans #out (lu par le test headless).
+       Ouvrir via un serveur http : python3 -m http.server, puis
+       http://localhost:8000/tests/ocr-smoke.html -->
+  <canvas id="cv" width="900" height="360" style="border:1px solid #ccc"></canvas>
+  <pre id="out">EN COURS…</pre>
+  <script src="../js/engine/util.js"></script>
+  <script src="../js/engine/classifieur.js"></script>
+  <script src="../vendor/tesseract/tesseract.min.js"></script>
+  <script>
+    (async () => {
+      const out = document.getElementById('out');
+      try {
+        const cv = document.getElementById('cv');
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.fillStyle = '#000';
+        ctx.font = '24px Arial';
+        const lignes = [
+          'DECOMPTE DE CHARGES 2025',
+          'Entretien parties communes      312,45',
+          'TEOM                            240,00',
+          'Honoraires syndic               480,00',
+          'Ravalement facade              3250,00',
+        ];
+        lignes.forEach((l, i) => ctx.fillText(l, 30, 60 + i * 55));
+
+        const abs = (p) => new URL(p, document.baseURI).href;
+        const worker = await Tesseract.createWorker('fra', 1, {
+          workerPath: abs('../vendor/tesseract/worker.min.js'),
+          corePath: abs('../vendor/tesseract'),
+          langPath: abs('../vendor/tesseract/lang'),
+          gzip: true,
+        });
+        const { data } = await worker.recognize(cv);
+        await worker.terminate();
+
+        const ana = DFISC.classifieur.analyserTexte(data.text, { mode: 'nue', source: 'canvas' });
+        out.textContent = JSON.stringify(
+          {
+            statut: 'OK',
+            texteOCR: data.text.trim().split('\n').slice(0, 8),
+            categories: ana.items.map((i) => i.categorie + ':' + i.montant),
+            totaux: ana.totaux,
+          },
+          null, 2
+        );
+      } catch (e) {
+        out.textContent = JSON.stringify({ statut: 'ERREUR', message: String(e && e.message || e) });
+      }
+    })();
+  </script>
+</body>
+</html>

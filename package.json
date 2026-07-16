@@ -1,0 +1,20 @@
+{
+  "name": "d-fiscalisateur",
+  "version": "1.0.0",
+  "description": "Simulateur de défiscalisation français — 100 % local. Les dépendances ci-dessous servent uniquement à l'analyse de documents scannés (OCR local dans le navigateur) ; le simulateur fonctionne sans elles.",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/vendor.js",
+    "vendor": "node scripts/vendor.js",
+    "test": "node tests/run-tests.js",
+    "test:e2e": "node tests/e2e.js"
+  },
+  "dependencies": {
+    "@tesseract.js-data/fra": "1.0.0",
+    "pdfjs-dist": "3.11.174",
+    "tesseract.js": "5.1.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.61.1"
+  }
+}
