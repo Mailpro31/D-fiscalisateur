@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>D-Fiscalisateur — simulateur de défiscalisation (revenus 2025)</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site">
+    <h1>🇫🇷 D-Fiscalisateur</h1>
+    <p>
+      Simulateur de défiscalisation français : immobilier locatif (déficit foncier, LMNP et amortissements,
+      Pinel/Denormandie, Loc'Avantages, Malraux, Girardin…), plan d'épargne retraite (PER), et l'ensemble des
+      réductions et crédits d'impôt courants — avec le <strong>montant d'impôt économisé</strong> et les
+      <strong>cases à remplir sur la déclaration officielle</strong>.
+    </p>
+  </header>
+  <div class="bandeau">
+    ⚠ Outil pédagogique de simulation — revenus <strong>2025</strong>, déclarés en <strong>2026</strong>. Barème LF 2025
+    reconduit par hypothèse de « gel » (année blanche) du PLF 2026 : vérifiez la loi de finances définitive. Les numéros de
+    cases marqués <span class="badge-verif">à vérifier</span> changent selon le millésime des formulaires. Ceci n'est pas
+    un conseil fiscal : faites valider vos choix par un professionnel.
+  </div>
+
+  <main>
+    <div class="toolbar">
+      <button id="btn-exemple" class="secondaire" type="button">Charger un exemple complet</button>
+      <button id="btn-reset" class="secondaire" type="button">Tout remettre à zéro</button>
+      <button id="btn-print" type="button">🖨 Imprimer / exporter la synthèse</button>
+    </div>
+
+    <div class="layout">
+      <!-- ============================ FORMULAIRE ============================ -->
+      <div class="colonne-form">
+
+        <!-- 1. Foyer -->
+        <details class="section" open>
+          <summary><span class="num">1</span> Foyer fiscal</summary>
+          <div class="section-corps">
+            <p class="help">Le nombre de parts détermine le quotient familial. Cas particuliers (invalidité, ancien
+              combattant…) : utilisez « parts forcées ».</p>
+            <div class="grille">
+              <label class="fld"><span>Situation</span>
+                <select id="foyer_situation">
+                  <option value="celibataire">Célibataire / divorcé·e / séparé·e</option>
+                  <option value="couple">Marié·e / pacsé·e (imposition commune)</option>
+                  <option value="veuf">Veuf / veuve</option>
+                </select>
+              </label>
+              <label class="fld"><span>Enfants à charge exclusive</span><input type="number" id="foyer_enfants" min="0" step="1" value="0" /></label>
+              <label class="fld"><span>Enfants en résidence alternée</span><input type="number" id="foyer_enfantsAlternee" min="0" step="1" value="0" /></label>
+              <label class="fld-check"><input type="checkbox" id="foyer_parentIsole" /> Parent isolé (case T)</label>
+              <label class="fld"><span>Parts forcées <span class="hint" title="Laissez vide pour le calcul automatique. À renseigner si votre foyer bénéficie de demi-parts particulières (invalidité, ancien combattant…)">?</span></span><input type="number" id="foyer_partsForcees" min="0" step="0.25" placeholder="auto" /></label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 2. Revenus -->
+        <details class="section" open>
+          <summary><span class="num">2</span> Revenus 2025</summary>
+          <div class="section-corps">
+            <p class="help">Saisissez les montants <strong>imposables</strong> (avant l'abattement de 10 %, appliqué
+              automatiquement — ou saisissez vos frais réels). Revenus locatifs : sections 3 et 4.</p>
+            <div class="grille">
+              <label class="fld"><span>Salaires déclarant 1 (case 1AJ)</span><input type="number" id="rev_salaires1" min="0" /></label>
+              <label class="fld"><span>Salaires déclarant 2 (1BJ)</span><input type="number" id="rev_salaires2" min="0" /></label>
+              <label class="fld"><span>Frais réels décl. 1 (1AK — 0 = abattement 10 %)</span><input type="number" id="rev_fraisReels1" min="0" /></label>
+              <label class="fld"><span>Frais réels décl. 2 (1BK)</span><input type="number" id="rev_fraisReels2" min="0" /></label>
+              <label class="fld"><span>Pensions, retraites décl. 1 (1AS)</span><input type="number" id="rev_pensions1" min="0" /></label>
+              <label class="fld"><span>Pensions, retraites décl. 2 (1BS)</span><input type="number" id="rev_pensions2" min="0" /></label>
+              <label class="fld"><span>Bénéfices pro nets (BIC/BNC/BA) <span class="hint" title="Résultat net imposable de votre activité indépendante. Les cotisations Madelin sont déjà déduites à ce niveau.">?</span></span><input type="number" id="rev_bicPro" /></label>
+              <label class="fld"><span>Autres revenus imposables au barème</span><input type="number" id="rev_autres" /></label>
+              <label class="fld"><span>Dividendes / intérêts au PFU 30 % <span class="hint" title="Information : imposés à part (12,8 % IR + 17,2 % PS). Comptés dans le revenu fiscal de référence (CEHR).">?</span></span><input type="number" id="rev_rcmPfu" min="0" /></label>
+              <label class="fld"><span>CSG déductible (case 6DE, préremplie)</span><input type="number" id="rev_csg" min="0" /></label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 3. Location nue -->
+        <details class="section">
+          <summary><span class="num">3</span> Location nue — déficit foncier</summary>
+          <div class="section-corps">
+            <p class="help">Au régime réel, seules les charges <strong>restant à la charge du propriétaire</strong> sont
+              déductibles — jamais les charges récupérables sur le locataire (TEOM, eau, chauffage collectif…&nbsp;:
+              voir le <a href="#guide-charges">guide détaillé</a> en bas de page). Le déficit hors intérêts d'emprunt
+              s'impute sur le revenu global jusqu'à <strong>10 700 €</strong> (21 400 € en cas de rénovation énergétique
+              d'une passoire, dépenses 2023-2025), à condition de louer jusqu'au 31 décembre de la 3<sup>e</sup> année suivante.</p>
+            <label class="fld-check" style="padding-top:0"><input type="checkbox" id="fon_actif" /> J'ai (ou je prévois) une location nue</label>
+            <div class="grille">
+              <label class="fld"><span>Loyers bruts encaissés (hors charges refacturées)</span><input type="number" id="fon_loyers" min="0" /></label>
+              <label class="fld"><span>Nombre de logements loués nus</span><input type="number" id="fon_nbLocaux" min="0" step="1" value="1" /></label>
+              <label class="fld"><span>Assurances PNO + loyers impayés (ligne 223)</span><input type="number" id="fon_assurance" min="0" /></label>
+              <label class="fld"><span>Taxe foncière HORS TEOM (ligne 227) <span class="hint" title="La TEOM est récupérable sur le locataire : ne la déduisez pas.">?</span></span><input type="number" id="fon_tf" min="0" /></label>
+              <label class="fld"><span>Frais de gestion / agence (ligne 221)</span><input type="number" id="fon_gestion" min="0" /></label>
+              <label class="fld"><span>Provisions charges de copropriété (ligne 229)</span><input type="number" id="fon_copro" min="0" /></label>
+              <label class="fld"><span>Régularisation charges N-1 à réintégrer (ligne 230)</span><input type="number" id="fon_regul" min="0" /></label>
+              <label class="fld"><span>Travaux réparation / entretien / amélioration (ligne 224)</span><input type="number" id="fon_travaux" min="0" /></label>
+              <label class="fld"><span>dont rénovation énergétique « passoire » <span class="hint" title="Logement classé E/F/G atteignant A-D après travaux, dépenses payées 2023-2025 : le plafond d'imputation sur le revenu global passe de 10 700 € à 21 400 €.">?</span></span><input type="number" id="fon_renov" min="0" /></label>
+              <label class="fld"><span>Charges récupérables non récupérées au départ (ligne 225)</span><input type="number" id="fon_chargesLoc" min="0" /></label>
+              <label class="fld"><span>Autres charges (éviction, procédures…)</span><input type="number" id="fon_autres" min="0" /></label>
+              <label class="fld"><span>Intérêts d'emprunt + assurance emprunteur (ligne 250)</span><input type="number" id="fon_interets" min="0" /></label>
+              <label class="fld"><span>Déficits fonciers antérieurs non imputés (4BD)</span><input type="number" id="fon_deficitsAnt" min="0" /></label>
+              <label class="fld"><span>Régime</span>
+                <select id="fon_regime">
+                  <option value="auto">Choix automatique (le plus favorable)</option>
+                  <option value="micro">Micro-foncier (abattement 30 %)</option>
+                  <option value="reel">Réel (2044)</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 4. LMNP -->
+        <details class="section">
+          <summary><span class="num">4</span> Location meublée (LMNP) — amortissements</summary>
+          <div class="section-corps">
+            <p class="help">Au régime réel, le bien s'amortit <strong>par composants</strong> (le terrain, jamais) : c'est
+              souvent le levier le plus puissant, l'amortissement effaçant durablement le bénéfice imposable.
+              L'amortissement ne peut pas créer de déficit (art. 39 C CGI) : l'excédent se reporte sans limite.
+              <a href="#guide-amort">Guide des durées</a>.</p>
+            <label class="fld-check" style="padding-top:0"><input type="checkbox" id="lmnp_actif" /> J'ai (ou je prévois) une location meublée non professionnelle</label>
+            <div class="grille">
+              <label class="fld"><span>Type de location</span>
+                <select id="lmnp_type">
+                  <option value="longue">Meublé longue durée (micro : 50 %, plafond 77 700 €)</option>
+                  <option value="classe">Meublé de tourisme CLASSÉ (50 %, 77 700 €)</option>
+                  <option value="nonclasse">Meublé de tourisme NON classé (30 %, 15 000 €)</option>
+                </select>
+              </label>
+              <label class="fld"><span>Loyers charges comprises encaissés</span><input type="number" id="lmnp_loyers" min="0" /></label>
+              <label class="fld"><span>Charges annuelles (copro, TF, assurance, CFE, compta…)</span><input type="number" id="lmnp_charges" min="0" /></label>
+              <label class="fld"><span>Intérêts d'emprunt + assurance</span><input type="number" id="lmnp_interets" min="0" /></label>
+              <label class="fld"><span>Régime</span>
+                <select id="lmnp_regime">
+                  <option value="auto">Choix automatique (le plus favorable)</option>
+                  <option value="micro">Micro-BIC</option>
+                  <option value="reel">Réel (liasse 2031)</option>
+                </select>
+              </label>
+            </div>
+            <div class="sous-titre">Amortissements (régime réel)</div>
+            <div class="grille">
+              <label class="fld"><span>Prix d'acquisition du bien (hors mobilier)</span><input type="number" id="lmnp_prix" min="0" /></label>
+              <label class="fld"><span>Part du terrain (% non amortissable)</span><input type="number" id="lmnp_terrain" min="0" max="100" value="15" /></label>
+              <label class="fld"><span>Frais d'acquisition (notaire, agence)</span><input type="number" id="lmnp_frais" min="0" /></label>
+              <label class="fld-check"><input type="checkbox" id="lmnp_incorporer" checked /> Amortir les frais avec le bien (sinon : charge de l'année d'achat)</label>
+              <label class="fld"><span>Mobilier / électroménager</span><input type="number" id="lmnp_mobilier" min="0" /></label>
+              <label class="fld"><span>Durée mobilier (ans)</span><input type="number" id="lmnp_dureeMobilier" min="1" value="7" /></label>
+              <label class="fld"><span>Travaux immobilisés</span><input type="number" id="lmnp_travaux" min="0" /></label>
+              <label class="fld"><span>Durée travaux (ans)</span><input type="number" id="lmnp_dureeTravaux" min="1" value="15" /></label>
+              <label class="fld"><span>Amortissements reportés (art. 39 C, années antérieures)</span><input type="number" id="lmnp_reportsAmort" min="0" /></label>
+              <label class="fld"><span>Déficits LMNP antérieurs (10 ans)</span><input type="number" id="lmnp_deficitsAnt" min="0" /></label>
+            </div>
+            <table class="composants-table" id="lmnp_composants">
+              <thead><tr><th>Composant (répartition de la valeur bâtie)</th><th>%</th><th>Durée (ans)</th><th>Annuité</th></tr></thead>
+              <tbody><!-- rempli par app.js --></tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- 5. Dispositifs immobiliers -->
+        <details class="section">
+          <summary><span class="num">5</span> Dispositifs immobiliers (Pinel, Denormandie, Loc'Avantages, Malraux, Girardin…)</summary>
+          <div class="section-corps">
+            <p class="help">Le Pinel est <strong>fermé aux nouveaux investissements depuis le 1<sup>er</sup> janvier 2025</strong> :
+              seuls les engagements en cours continuent de produire leur réduction. Le <strong>Denormandie</strong>
+              (ancien avec ≥ 25 % de travaux) reste ouvert jusqu'à fin 2027.</p>
+
+            <div class="sous-titre">Pinel / Pinel+ / Denormandie (engagement en cours ou nouveau Denormandie)</div>
+            <label class="fld-check" style="padding-top:0"><input type="checkbox" id="disp_pinel_actif" /> J'ai un engagement Pinel/Denormandie</label>
+            <div class="grille">
+              <label class="fld"><span>Dispositif / génération</span>
+                <select id="disp_pinel_generation">
+                  <option value="pinel2022">Pinel 2014-2022 (12/18/21 %)</option>
+                  <option value="pinel2023">Pinel classique 2023 (10,5/15/17,5 %)</option>
+                  <option value="pinel2024">Pinel classique 2024 (9/12/14 %)</option>
+                  <option value="pinelplus">Pinel + 2023-2024 (12/18/21 %)</option>
+                  <option value="denormandie">Denormandie — ancien avec travaux (12/18/21 %)</option>
+                </select>
+              </label>
+              <label class="fld"><span>Prix de revient (plafonné à 300 000 €)</span><input type="number" id="disp_pinel_base" min="0" /></label>
+              <label class="fld"><span>Surface (m²) — plafond 5 500 €/m² (optionnel)</span><input type="number" id="disp_pinel_surface" min="0" /></label>
+              <label class="fld"><span>Engagement initial</span>
+                <select id="disp_pinel_dureeInitiale"><option value="6">6 ans</option><option value="9" selected>9 ans</option></select>
+              </label>
+              <label class="fld"><span>Durée totale prévue (avec prorogations)</span>
+                <select id="disp_pinel_duree"><option value="6">6 ans</option><option value="9" selected>9 ans</option><option value="12">12 ans</option></select>
+              </label>
+              <label class="fld"><span>Année de la 1<sup>re</sup> réduction (achèvement)</span><input type="number" id="disp_pinel_annee" min="2014" max="2027" placeholder="ex. 2024" /></label>
+            </div>
+
+            <div class="sous-titre">Loc'Avantages (conventionnement Anah — art. 199 tricies)</div>
+            <label class="fld-check" style="padding-top:0"><input type="checkbox" id="disp_la_actif" /> Logement conventionné Loc'Avantages</label>
+            <div class="grille">
+              <label class="fld"><span>Loyers bruts du logement conventionné</span><input type="number" id="disp_la_loyers" min="0" /></label>
+              <label class="fld"><span>Niveau de loyer</span>
+                <select id="disp_la_niveau">
+                  <option value="loc1">Loc 1 (loyer -15 % → réduction 15/20 %)</option>
+                  <option value="loc2">Loc 2 (loyer -30 % → réduction 35/40 %)</option>
+                  <option value="loc3">Loc 3 (loyer -45 % → réduction 65 %, intermédiation)</option>
+                </select>
+              </label>
+              <label class="fld-check"><input type="checkbox" id="disp_la_inter" /> Intermédiation locative (agence agréée)</label>
+            </div>
+
+            <div class="sous-titre">Malraux, Monuments historiques, Girardin, reports</div>
+            <div class="grille">
+              <label class="fld"><span>Malraux : travaux payés dans l'année (max 400 k€/4 ans)</span><input type="number" id="disp_malraux_travaux" min="0" /></label>
+              <label class="fld"><span>Malraux : secteur</span>
+                <select id="disp_malraux_secteur">
+                  <option value="psmv">Site patrimonial remarquable avec PSMV (30 %)</option>
+                  <option value="pvap">SPR avec PVAP / anciens secteurs (22 %)</option>
+                </select>
+              </label>
+              <label class="fld"><span>Monuments historiques : charges/travaux déductibles <span class="hint" title="Déduction du revenu global SANS plafond (bien classé/inscrit, conservation 15 ans). Hors plafonnement des niches.">?</span></span><input type="number" id="disp_mh_travaux" min="0" /></label>
+              <label class="fld"><span>Girardin : réduction acquise (attestation du monteur)</span><input type="number" id="disp_girardin_reduction" min="0" /></label>
+              <label class="fld"><span>Girardin : type</span>
+                <select id="disp_girardin_type">
+                  <option value="industriel_pd">Industriel de plein droit (rétrocession 56 %)</option>
+                  <option value="industriel_agrement">Industriel avec agrément (rétrocession 66 %)</option>
+                  <option value="social">Logement social (rétrocession 70 %)</option>
+                </select>
+              </label>
+              <label class="fld"><span>Censi-Bouvard : 1/9<sup>e</sup> annuel en cours</span><input type="number" id="disp_censi" min="0" /></label>
+              <label class="fld"><span>Autres reports de réductions immobilières (Scellier…)</span><input type="number" id="disp_autresReports" min="0" /></label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 6. PER -->
+        <details class="section">
+          <summary><span class="num">6</span> Épargne retraite (PER)</summary>
+          <div class="section-corps">
+            <p class="help">Les versements PER se déduisent du revenu global : l'économie = versement × votre tranche
+              marginale (TMI). Plafond 2025 : 10 % des revenus professionnels 2024 (min 4 637 €, max 37 094 €)
+              <strong>+ reliquats des 3 années précédentes</strong> → reportez le « plafond disponible » de votre avis
+              d'imposition. Couple : possibilité de mutualiser les plafonds (case 6QR).</p>
+            <div class="grille">
+              <label class="fld"><span>Versements PER 2025 — déclarant 1 (6NS)</span><input type="number" id="per_v1" min="0" /></label>
+              <label class="fld"><span>Versements PER 2025 — déclarant 2 (6NT)</span><input type="number" id="per_v2" min="0" /></label>
+              <label class="fld"><span>Plafond disponible avis d'imposition — décl. 1 <span class="hint" title="Dernière page de votre avis : « Plafond épargne retraite ». Laissez vide pour une estimation 10 % des revenus pro N-1.">?</span></span><input type="number" id="per_p1" min="0" placeholder="auto" /></label>
+              <label class="fld"><span>Plafond disponible — décl. 2</span><input type="number" id="per_p2" min="0" placeholder="auto" /></label>
+              <label class="fld"><span>Revenus pro 2024 nets — décl. 1 (pour l'estimation)</span><input type="number" id="per_rev1" min="0" /></label>
+              <label class="fld"><span>Revenus pro 2024 nets — décl. 2</span><input type="number" id="per_rev2" min="0" /></label>
+              <label class="fld-check"><input type="checkbox" id="per_mutu" /> Mutualiser les plafonds du couple (6QR)</label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 7. Famille / services -->
+        <details class="section">
+          <summary><span class="num">7</span> Emploi à domicile, garde d'enfants, scolarité, dépendance</summary>
+          <div class="section-corps">
+            <div class="sous-titre">Emploi d'un salarié à domicile — crédit 50 % (7DB)</div>
+            <div class="grille">
+              <label class="fld"><span>Dépenses totales (après aides : CESU préfinancé, APA…)</span><input type="number" id="fam_ed_depenses" min="0" /></label>
+              <label class="fld"><span>dont petit jardinage (plafond 5 000 €)</span><input type="number" id="fam_ed_jardinage" min="0" /></label>
+              <label class="fld"><span>dont assistance informatique (plafond 3 000 €)</span><input type="number" id="fam_ed_informatique" min="0" /></label>
+              <label class="fld"><span>dont petit bricolage (plafond 500 €)</span><input type="number" id="fam_ed_bricolage" min="0" /></label>
+              <label class="fld"><span>Majorations : enfants à charge + membres &gt; 65 ans (nb)</span><input type="number" id="fam_ed_majorations" min="0" step="1" /></label>
+              <label class="fld-check"><input type="checkbox" id="fam_ed_premiere" /> 1<sup>re</sup> année d'emploi direct (plafond 15/18 k€, case 7DQ)</label>
+              <label class="fld-check"><input type="checkbox" id="fam_ed_invalide" /> Membre du foyer invalide (plafond 20 k€, case 7DG)</label>
+            </div>
+            <div class="sous-titre">Garde d'enfants de moins de 6 ans HORS domicile — crédit 50 % (7GA…)</div>
+            <div class="grille">
+              <label class="fld"><span>Enfants de - de 6 ans gardés (charge exclusive)</span><input type="number" id="fam_garde_nb" min="0" step="1" /></label>
+              <label class="fld"><span>dont en résidence alternée (nb)</span><input type="number" id="fam_garde_nbAlt" min="0" step="1" /></label>
+              <label class="fld"><span>Dépenses (crèche, ass. mat.) après CMG de la CAF</span><input type="number" id="fam_garde_depenses" min="0" /></label>
+            </div>
+            <div class="sous-titre">Enfants scolarisés au 31/12 (réduction forfaitaire)</div>
+            <div class="grille">
+              <label class="fld"><span>Au collège (61 €/enfant — 7EA)</span><input type="number" id="fam_scol_college" min="0" step="1" /></label>
+              <label class="fld"><span>Au lycée (153 €/enfant — 7EC)</span><input type="number" id="fam_scol_lycee" min="0" step="1" /></label>
+              <label class="fld"><span>Dans le supérieur (183 €/enfant — 7EF)</span><input type="number" id="fam_scol_sup" min="0" step="1" /></label>
+            </div>
+            <div class="sous-titre">Autres situations</div>
+            <div class="grille">
+              <label class="fld"><span>EHPAD : frais de dépendance 1<sup>re</sup> personne (7CD)</span><input type="number" id="fam_ehpad_m1" min="0" /></label>
+              <label class="fld"><span>EHPAD : 2<sup>e</sup> personne (7CE)</span><input type="number" id="fam_ehpad_m2" min="0" /></label>
+              <label class="fld"><span>Prestation compensatoire en capital ≤ 12 mois (7WN)</span><input type="number" id="fam_prestComp" min="0" /></label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 8. Charges déductibles -->
+        <details class="section">
+          <summary><span class="num">8</span> Pensions alimentaires et autres charges déductibles</summary>
+          <div class="section-corps">
+            <div class="grille">
+              <label class="fld"><span>Enfants majeurs aidés (nb) <span class="hint" title="Plafond de déduction : 6 794 € par enfant majeur non rattaché.">?</span></span><input type="number" id="chg_nbEnfMajeurs" min="0" step="1" /></label>
+              <label class="fld"><span>Pension versée aux enfants majeurs (6EL)</span><input type="number" id="chg_pensionEnfMajeurs" min="0" /></label>
+              <label class="fld"><span>Autres pensions : enfants mineurs, ascendants, ex-conjoint (6GU)</span><input type="number" id="chg_pensionsAutres" min="0" /></label>
+              <label class="fld"><span>Personnes &gt; 75 ans accueillies (nb)</span><input type="number" id="chg_nbAccueil" min="0" step="1" /></label>
+              <label class="fld"><span>Frais d'accueil personne &gt; 75 ans (6EU — max 3 968 €/pers.)</span><input type="number" id="chg_accueil" min="0" /></label>
+              <label class="fld"><span>Rachat de trimestres de retraite</span><input type="number" id="chg_rachat" min="0" /></label>
+            </div>
+          </div>
+        </details>
+
+        <!-- 9. Dons & placements -->
+        <details class="section">
+          <summary><span class="num">9</span> Dons, syndicats, PME, FCPI/FIP, Sofica, forêt, bornes…</summary>
+          <div class="section-corps">
+            <div class="sous-titre">Dons (hors plafonnement des niches)</div>
+            <div class="grille">
+              <label class="fld"><span>Dons « Coluche » — aide aux personnes en difficulté, 75 % (7UD, max 1 000 €)</span><input type="number" id="dons_urgence" min="0" /></label>
+              <label class="fld"><span>Dons d'intérêt général, 66 % (7UF)</span><input type="number" id="dons_general" min="0" /></label>
+              <label class="fld"><span>Cotisations syndicales — crédit 66 % (7AC)</span><input type="number" id="div_syndicats" min="0" /></label>
+            </div>
+            <div class="sous-titre">Investissements financiers défiscalisants</div>
+            <div class="grille">
+              <label class="fld"><span>Souscription capital PME (7CF)</span><input type="number" id="div_pme_montant" min="0" /></label>
+              <label class="fld"><span>Type de souscription PME</span>
+                <select id="div_pme_taux">
+                  <option value="classique">PME classique (18 %)</option>
+                  <option value="esus">ESUS / foncière solidaire (25 %)</option>
+                  <option value="jei">Jeune entreprise innovante (30 %)</option>
+                  <option value="jeir">JEI de rupture (50 %)</option>
+                </select>
+              </label>
+              <label class="fld"><span>FCPI — 25 % (7GQ)</span><input type="number" id="div_fcpi" min="0" /></label>
+              <label class="fld"><span>FIP — 18 % (7FQ)</span><input type="number" id="div_fip" min="0" /></label>
+              <label class="fld"><span>FIP Corse — 30 % (7FM)</span><input type="number" id="div_fipCorse" min="0" /></label>
+              <label class="fld"><span>FIP Outre-mer — 30 % (7FL)</span><input type="number" id="div_fipOM" min="0" /></label>
+              <label class="fld"><span>Sofica (cinéma)</span><input type="number" id="div_sofica_montant" min="0" /></label>
+              <label class="fld"><span>Taux Sofica</span>
+                <select id="div_sofica_taux"><option value="0.48">48 % (engagement dépenses)</option><option value="0.36">36 %</option><option value="0.30">30 %</option></select>
+              </label>
+              <label class="fld"><span>Investissement forestier DEFI — crédit 25 %</span><input type="number" id="div_foret" min="0" /></label>
+              <label class="fld"><span>Borne(s) de recharge : dépense (crédit 75 %, max 500 €/borne)</span><input type="number" id="div_bornes_dep" min="0" /></label>
+              <label class="fld"><span>Nombre de bornes</span><input type="number" id="div_bornes_nb" min="1" step="1" value="1" /></label>
+              <label class="fld"><span>Équipements personnes âgées/handicap — crédit 25 % (7WJ)</span><input type="number" id="div_equipements" min="0" /></label>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- ============================ RÉSULTATS ============================ -->
+      <aside class="resultats">
+        <div class="carte eco-hero">
+          <div class="lbl" style="opacity:.85">💰 Économie d'impôt totale (IR + prélèvements sociaux)</div>
+          <div class="montant-hero" id="res_economie">0 €</div>
+          <div class="sous" id="res_economie_detail"></div>
+          <div class="comparo">
+            <div><div class="lbl">Impôt SANS les leviers</div><div class="val" id="res_avant">0 €</div></div>
+            <div><div class="lbl">Impôt AVEC optimisation</div><div class="val" id="res_apres">0 €</div></div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>Votre situation</h2>
+          <div class="kpis">
+            <div><div class="lbl">Parts fiscales</div><div class="val" id="res_parts">1</div></div>
+            <div><div class="lbl">Revenu net imposable</div><div class="val" id="res_rni">0 €</div></div>
+            <div><div class="lbl">Tranche marginale</div><div class="val" id="res_tmi">0 %</div></div>
+          </div>
+          <div class="kpis" style="margin-top:8px">
+            <div><div class="lbl">IR net</div><div class="val" id="res_ir">0 €</div></div>
+            <div><div class="lbl">Prélèv. sociaux (17,2 %)</div><div class="val" id="res_ps">0 €</div></div>
+            <div><div class="lbl">Réductions + crédits</div><div class="val" id="res_avantages">0 €</div></div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <h2>Impact de chaque levier</h2>
+          <ul class="impacts" id="res_impacts"><li>Renseignez le formulaire pour voir l'impact de chaque dispositif.</li></ul>
+        </div>
+
+        <div class="carte">
+          <h2>Plafonnement global des niches</h2>
+          <div class="jauge" id="res_jauge"><div style="width:0%"></div></div>
+          <div class="jauge-legende"><span id="res_jauge_txt">0 € utilisés</span><span id="res_jauge_max">plafond 10 000 €</span></div>
+        </div>
+
+        <div class="carte">
+          <h2>Alertes &amp; conseils</h2>
+          <div class="alertes" id="res_alertes"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ============================ CASES DÉCLARATION ============================ -->
+    <div class="carte" style="margin-top:20px">
+      <h2>📋 Cases à remplir sur la déclaration 2026 (revenus 2025) — avec les montants</h2>
+      <p class="help">Reportez ces montants dans votre déclaration en ligne (ou formulaires papier 2042, 2042-RICI,
+        2042-C-PRO, 2044…). Les lignes <span class="badge-verif">à vérifier</span> portent des numéros susceptibles de
+        changer d'un millésime à l'autre : repérez la ligne au libellé équivalent.</p>
+      <div class="cases-wrap"><table class="cases" id="res_cases">
+        <thead><tr><th style="width:130px">Case</th><th>Intitulé</th><th style="width:110px;text-align:right">Montant</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ============================ GUIDES ============================ -->
+    <details class="section" id="guide-charges" style="margin-top:20px">
+      <summary><span class="num">📖</span> Guide — charges du locataire vs charges du propriétaire (ce qu'il faut fournir)</summary>
+      <div class="section-corps">
+        <p class="help" id="guide_charges_intro"></p>
+        <div class="deux-cols">
+          <div>
+            <span class="tag-loc locataire">🔑 RÉCUPÉRABLES sur le locataire — jamais déductibles (décret n° 87-713)</span>
+            <table class="guide" id="guide_charges_recup"><thead><tr><th>Poste</th><th>Détail</th></tr></thead><tbody></tbody></table>
+          </div>
+          <div>
+            <span class="tag-loc proprio">🏠 À la charge du PROPRIÉTAIRE — déductibles au réel (ligne 2044)</span>
+            <table class="guide" id="guide_charges_prop"><thead><tr><th>Poste</th><th>Détail</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+        <div class="sous-titre">Pièces à fournir / conserver (contrôle possible 3 ans)</div>
+        <ul class="pieces" id="guide_pieces"></ul>
+      </div>
+    </details>
+
+    <details class="section" id="guide-amort">
+      <summary><span class="num">📖</span> Guide — amortissements de l'investissement locatif meublé (LMNP)</summary>
+      <div class="section-corps">
+        <p class="help" id="guide_amort_intro"></p>
+        <table class="guide" id="guide_amort_table"><thead><tr><th>Composant</th><th>Part indicative</th><th>Durée</th></tr></thead><tbody></tbody></table>
+      </div>
+    </details>
+
+    <details class="section">
+      <summary><span class="num">📖</span> Guide — comment l'impôt est calculé (ordre des étapes)</summary>
+      <div class="section-corps">
+        <ol style="line-height:1.9">
+          <li><strong>Revenus catégoriels</strong> : salaires/pensions (-10 % ou frais réels), BIC/BNC, revenus fonciers (micro ou réel), BIC meublé (micro ou réel avec amortissements).</li>
+          <li><strong>Revenu brut global</strong> : somme des catégories, moins le déficit foncier imputable (10 700 / 21 400 €) et les charges « Monuments historiques ».</li>
+          <li><strong>Charges déductibles</strong> : PER (dans le plafond), pensions alimentaires, CSG déductible, frais d'accueil… → <strong>revenu net imposable</strong>.</li>
+          <li><strong>Barème progressif</strong> (0/11/30/41/45 %) avec quotient familial (plafonné à 1 791 €/demi-part) puis <strong>décote</strong>.</li>
+          <li><strong>Réductions d'impôt</strong> (Pinel, dons, FCPI…) : imputées dans la limite de l'impôt — l'excédent est en général <em>perdu</em>.</li>
+          <li><strong>Plafonnement global des niches</strong> : 10 000 € d'avantages/an (18 000 € avec outre-mer/Sofica) ; dons, scolarité, EHPAD, Malraux, MH et charges déductibles hors plafond.</li>
+          <li><strong>Crédits d'impôt</strong> (emploi à domicile, garde, syndicats…) : remboursés même sans impôt.</li>
+          <li><strong>Prélèvements sociaux 17,2 %</strong> sur les revenus du patrimoine (fonciers, LMNP) — le déficit foncier et les amortissements les réduisent aussi.</li>
+        </ol>
+      </div>
+    </details>
+
+    <footer class="site">
+      <strong>D-Fiscalisateur</strong> — outil pédagogique open-source. Calculs indicatifs fondés sur le CGI et la LF 2025
+      (hypothèse de gel pour les revenus 2025) : ils ne remplacent ni la documentation officielle (impots.gouv.fr, BOFiP),
+      ni le conseil d'un professionnel (expert-comptable, avocat fiscaliste, notaire). Aucune donnée n'est transmise :
+      tout est calculé localement dans votre navigateur.
+    </footer>
+  </main>
+
+  <script src="js/config/params.js"></script>
+  <script src="js/engine/util.js"></script>
+  <script src="js/data/charges_locatives.js"></script>
+  <script src="js/engine/bareme.js"></script>
+  <script src="js/engine/foncier.js"></script>
+  <script src="js/engine/lmnp.js"></script>
+  <script src="js/engine/per.js"></script>
+  <script src="js/engine/dispositifs.js"></script>
+  <script src="js/engine/plafonnement.js"></script>
+  <script src="js/engine/simulateur.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
