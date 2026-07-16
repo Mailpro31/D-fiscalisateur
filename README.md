@@ -96,6 +96,37 @@ dons, syndicats, scolarité, EHPAD, Malraux, MH…) · crédits remboursables ·
 17,2 %** sur les revenus du patrimoine (le déficit foncier et les amortissements les réduisent
 aussi) · CEHR (3/4 %).
 
+## 🎯 Plan d'optimisation pluriannuel (N+1, N+2, N+3)
+
+À partir de la simulation de l'année N, l'outil génère des **propositions chiffrées pour les trois
+années suivantes**, triées par priorité, avec le gain annuel estimé (à revenus constants, à votre
+TMI, + 17,2 % quand le levier réduit des revenus du patrimoine) :
+
+- **PER** : plafond restant et **versement optimal** (celui qui reste déduit dans votre tranche
+  actuelle), mutualisation des plafonds du couple, alerte d'excédent, mise en garde à TMI ≤ 11 % ;
+- **Déficit foncier** : étalement des travaux pour re-consommer les 10 700 €/an, stock de reports
+  (10 ans) et économie future associée, deadline du plafond majoré 21 400 € (dépenses payées
+  jusqu'à fin 2025), bascule micro ↔ réel quand elle devient favorable ;
+- **LMNP** : réserve d'amortissements (années d'imposition zéro estimées), bascule micro → réel
+  chiffrée, arbitrage revente vs amortissements (réintégration dans la plus-value depuis 2025) ;
+- **Pinel/Denormandie** : **échéancier des 3 prochaines années** — passage en prorogation à taux
+  réduit, fin d'engagement avec la perte annuelle et les options (proroger, basculer en meublé,
+  vendre), alerte réduction non reportable ;
+- **Plafonnement des niches** : investissements à décaler vers N+1 quand le plafond est dépassé
+  (perte évitée chiffrée), ou capacité de défiscalisation restante par an ; suggestion Girardin
+  pour les gros impôts (comptée à 44 % dans le plafond 18 000 €, avec mise en garde) ;
+- **Divers** : étalement des réductions perdues, report automatique des dons (5 ans), lissage
+  CEHR/quotient, avance de 60 % sur les crédits d'impôt en janvier.
+
+## 💾 Confort d'utilisation
+
+- **Sauvegarde automatique** de la saisie dans le navigateur (localStorage — restaurée à
+  l'ouverture, effacée par « Tout remettre à zéro ») ;
+- **Export / import du dossier** en fichier JSON (rien ne quitte votre machine) — pratique pour
+  archiver chaque année ou partager avec votre conseil ;
+- **Copie de la liste des cases** (formulaire / case / intitulé / montant) en un clic, prête à
+  coller dans un tableur ou un e-mail.
+
 ## 📋 Ce que produit l'outil
 
 1. **Économie d'impôt totale** (IR + prélèvements sociaux) : comparaison entre votre situation

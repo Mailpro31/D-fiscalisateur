@@ -18,6 +18,7 @@ R('js/engine/dispositifs.js');
 R('js/engine/plafonnement.js');
 R('js/engine/simulateur.js');
 R('js/engine/classifieur.js');
+R('js/engine/conseiller.js');
 
 const DFISC = globalThis.DFISC;
 const P = DFISC.PARAMS;
@@ -293,6 +294,61 @@ assertEqual(copro.alertes.length >= 2, true, 'Alertes ALUR + arrêté des compte
 const coproVide = DFISC.classifieur.calculerCopro({ provisionsPayees: 1000 });
 assertClose(coproVide.ligne229, 1000, 0.01, 'Sans fonds ALUR : tout déductible ligne 229');
 assertEqual(coproVide.alertes.some((a) => /230/.test(a)), true, 'Rappel de la réintégration N+1 (ligne 230)');
+
+/* ---------------- 10. Conseiller pluriannuel (N+1, N+2, N+3) -------------- */
+console.log('\n■ Conseiller — propositions d\'optimisation pluriannuelles');
+
+// PER : marge inutilisée à TMI 30 %
+const etatPER = etatVide();
+etatPER.revenus.salaires1 = 90000;
+etatPER.per.revenusProN1_1 = 80000;
+const runPER = DFISC.simulateur.run(etatPER);
+const consPER = DFISC.conseiller.generer(runPER, etatPER, P);
+const cPER = consPER.conseils.find((c) => c.categorie === 'PER' && c.horizon === 0);
+assertEqual(!!cPER, true, 'Conseil PER émis quand le plafond est inutilisé à TMI 30 %');
+assertClose(cPER.gain, 2400, 1, 'Gain PER = 8 000 € (10 % de 80 000) × 30 %');
+
+// Niches : reprise → décaler vers N+1
+const etatNiches = etatVide();
+etatNiches.revenus.salaires1 = 300000;
+etatNiches.divers.fonds.fcpi = 12000;
+etatNiches.famille.emploiDomicile.depenses = 12000;
+etatNiches.dispositifs.censi = 4000;
+const runNiches = DFISC.simulateur.run(etatNiches);
+const consNiches = DFISC.conseiller.generer(runNiches, etatNiches, P);
+const cNiches = consNiches.conseils.find((c) => c.categorie === 'Niches' && c.horizon === 1);
+assertEqual(!!cNiches, true, 'Conseil « décaler vers N+1 » émis quand le plafonnement est dépassé');
+assertClose(cNiches.gain, 3000, 1.5, 'Gain = avantages repris (3 000 €)');
+
+// Pinel : fin d'engagement détectée dans les 3 ans
+const etatPinel = etatVide();
+etatPinel.revenus.salaires1 = 60000;
+etatPinel.dispositifs.pinel = { actif: true, generation: 'pinel2022', base: 200000, dureeInitiale: 6, duree: 6, anneePremiere: 2021 };
+const runPinel = DFISC.simulateur.run(etatPinel);
+const consPinel = DFISC.conseiller.generer(runPinel, etatPinel, P);
+const cPinel = consPinel.conseils.find((c) => c.categorie === 'Pinel');
+assertEqual(!!cPinel, true, 'Échéance Pinel détectée');
+assertEqual(cPinel.horizon, 2, 'Fin d\'engagement Pinel 2021+6 ans → alerte pour N+2 (2027)');
+assertEqual(/fin de votre réduction/i.test(cPinel.titre), true, 'Titre : fin de la réduction annoncée');
+
+// LMNP : micro forcé alors que le réel serait meilleur → conseil de bascule
+const etatLM = etatVide();
+etatLM.revenus.salaires1 = 90000;
+etatLM.lmnp = { actif: true, type: 'longue', loyers: 20000, charges: 2000, interets: 0, prixBien: 300000, partTerrainPct: 15, fraisAcquisition: 0, incorporerFrais: true, mobilier: 10000, dureeMobilier: 7, travaux: 0, dureeTravaux: 15, composants: null, reportsAmortissements: 0, deficitsBicAnterieurs: 0, regime: 'micro' };
+const runLM = DFISC.simulateur.run(etatLM);
+const consLM = DFISC.conseiller.generer(runLM, etatLM, P);
+const cLM = consLM.conseils.find((c) => c.categorie === 'LMNP' && /réel/i.test(c.titre));
+assertEqual(!!cLM, true, 'Conseil « passez au réel LMNP » émis');
+// micro 10 000 − réel 7 009 = 2 991 € de base en moins × (TMI 41 % + PS 17,2 %)
+assertClose(cLM.gain, 2991 * (0.41 + 0.172), 5, 'Gain bascule réel = écart de base × (TMI + 17,2 %)');
+
+// Rénovation énergétique : date limite fin 2025 signalée
+const etatRenov = etatVide();
+etatRenov.revenus.salaires1 = 60000;
+etatRenov.foncier = { actif: true, loyers: 9000, nbLocaux: 1, travaux: 2000, travauxRenov: 9000, interets: 0, regime: 'reel' };
+const runRenov = DFISC.simulateur.run(etatRenov);
+const consRenov = DFISC.conseiller.generer(runRenov, etatRenov, P);
+assertEqual(consRenov.conseils.some((c) => /21 400|fin 2025|31\/12\/2025/.test(c.titre + c.detail)), true, 'Alerte deadline rénovation énergétique (dépenses payées fin 2025)');
 
 /* ---------------- Bilan --------------------------------------------------- */
 console.log(`\n${ok} tests OK, ${ko} échec(s).`);

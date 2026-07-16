@@ -132,15 +132,37 @@ const assert = (cond, label, detail) => {
     assert(parseFloat(await page.inputValue('#fon_copro')) === 2100, 'Champ provisions copro (229) rempli : 2 100 €');
     assert(parseFloat(await page.inputValue('#fon_regul')) === 970, 'Champ régularisation (230) rempli : 970 €');
 
-    /* ---------- 3. Non-régression : exemple complet ---------- */
-    console.log('\n■ E2E — exemple complet (#exemple)');
+    /* ---------- 3. Non-régression : exemple complet + plan pluriannuel ---------- */
+    console.log('\n■ E2E — exemple complet (#exemple) et plan d\'optimisation');
     // Nouvelle page : un simple changement de hash ne recharge pas le document.
     const page2 = await navigateur.newPage();
     await page2.goto(`http://127.0.0.1:${PORT}/index.html#exemple`);
     await page2.waitForFunction(() => !/^0/.test(document.getElementById('res_economie').textContent.trim()));
     const ecoExemple = await page2.locator('#res_economie').textContent();
     const nbCases = await page2.locator('#res_cases tbody tr:not(.groupe)').count();
+    const nbConseils = await page2.locator('#res_conseils .conseil').count();
+    const texteConseils = await page2.locator('#res_conseils').textContent();
+    assert(nbConseils >= 3, `Plan pluriannuel : ${nbConseils} propositions générées`);
+    // L'exemple est en rang 2/9 du Pinel à taux constant : aucune échéance à signaler,
+    // mais la deadline rénovation énergétique et les amortissements doivent apparaître.
+    assert(/énergétique|21 400/.test(texteConseils), 'Plan : deadline rénovation énergétique (fin 2025) mentionnée');
+    assert(/amortissements/i.test(texteConseils), 'Plan : réserve d\'amortissements LMNP mentionnée');
+    assert(/PER/i.test(texteConseils), 'Plan : PER mentionné (alerte TMI 11 %)');
     await page2.close();
+
+    /* ---------- 4. Sauvegarde automatique (localStorage) ---------- */
+    console.log('\n■ E2E — sauvegarde automatique et restauration');
+    const page3 = await navigateur.newPage();
+    await page3.goto(`http://127.0.0.1:${PORT}/index.html`);
+    await page3.evaluate(() => localStorage.clear());
+    await page3.fill('#rev_salaires1', '43210');
+    await page3.waitForTimeout(500); // debounce + sauvegarde
+    await page3.reload();
+    assert((await page3.inputValue('#rev_salaires1')) === '43210', 'Saisie restaurée après rechargement de la page');
+    await page3.click('#btn-reset');
+    await page3.reload();
+    assert((await page3.inputValue('#rev_salaires1')) === '', '« Tout remettre à zéro » efface aussi la sauvegarde');
+    await page3.close();
     assert(/[1-9]/.test(ecoExemple), `Exemple : économie affichée (${ecoExemple.trim()})`);
     assert(nbCases >= 20, `Exemple : ${nbCases} lignes de cases générées`);
   } finally {

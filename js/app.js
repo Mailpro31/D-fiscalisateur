@@ -167,6 +167,129 @@
     };
   }
 
+  let derniereSimulation = null; // pour la copie des cases
+
+  /* ---------------- Plan pluriannuel (conseiller) ------------------------- */
+  const HORIZONS = (anneeN) => ({
+    0: '♻ Chaque année / dès maintenant',
+    1: `${anneeN + 1} (N+1)`,
+    2: `${anneeN + 2} (N+2)`,
+    3: `${anneeN + 3} (N+3)`,
+  });
+  const PRIO_LIBELLE = { 1: 'prioritaire', 2: 'utile', 3: 'à étudier' };
+
+  function renderConseils(res, state) {
+    const zone = $('res_conseils');
+    const { conseils, potentiel, anneeN } = DFISC.conseiller.generer(res, state, P);
+    if (!conseils.length) {
+      zone.innerHTML = '<p style="color:var(--texte-2)">Renseignez votre situation : les propositions d\'optimisation pour les années suivantes apparaîtront ici.</p>';
+      return;
+    }
+    const libelles = HORIZONS(anneeN);
+    let html = potentiel > 0
+      ? `<div class="potentiel">Potentiel d'économies supplémentaires identifié : <strong>≈ ${eur(potentiel)}/an</strong></div>`
+      : '';
+    for (const h of [0, 1, 2, 3]) {
+      const groupe = conseils.filter((c) => c.horizon === h);
+      if (!groupe.length) continue;
+      html += `<div class="conseil-groupe"><h3>${libelles[h]}</h3>`;
+      for (const c of groupe) {
+        html += `<div class="conseil prio-${c.priorite}">
+          <div class="conseil-tete">
+            <span class="chip-cat">${c.categorie}</span>
+            <span class="chip-prio p${c.priorite}">${PRIO_LIBELLE[c.priorite]}</span>
+            <strong>${c.titre}</strong>
+            ${c.gain ? `<span class="badge-gain">≈ +${eur(c.gain)}/an</span>` : ''}
+          </div>
+          <p>${c.detail}</p>
+        </div>`;
+      }
+      html += '</div>';
+    }
+    zone.innerHTML = html;
+  }
+
+  /* ---------------- Sauvegarde / export / import -------------------------- */
+  const CLE_STOCKAGE = 'dfisc_dossier_v1';
+
+  function collecterChamps() {
+    const donnees = {};
+    document.querySelectorAll('.colonne-form input, .colonne-form select').forEach((el) => {
+      if (!el.id) return;
+      donnees[el.id] = el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value;
+    });
+    return donnees;
+  }
+
+  function appliquerChamps(donnees) {
+    if (!donnees) return;
+    for (const [id, valeur] of Object.entries(donnees)) {
+      const el = $(id);
+      if (!el) continue;
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!valeur;
+      else el.value = valeur;
+    }
+  }
+
+  function sauvegarder() {
+    try {
+      localStorage.setItem(CLE_STOCKAGE, JSON.stringify({ version: 1, champs: collecterChamps() }));
+    } catch (e) { /* stockage indisponible : tant pis */ }
+  }
+
+  function restaurer() {
+    try {
+      const brut = localStorage.getItem(CLE_STOCKAGE);
+      if (!brut) return false;
+      const dossier = JSON.parse(brut);
+      appliquerChamps(dossier.champs);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function exporterDossier() {
+    const blob = new Blob([JSON.stringify({ version: 1, outil: 'D-Fiscalisateur', millesime: P.MILLESIME, champs: collecterChamps() }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `d-fiscalisateur-revenus-${P.MILLESIME.revenus}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function importerDossier(fichier) {
+    fichier.text().then((txt) => {
+      const dossier = JSON.parse(txt);
+      if (!dossier || !dossier.champs) throw new Error('format inattendu');
+      reset(false);
+      appliquerChamps(dossier.champs);
+      document.querySelectorAll('details.section').forEach((d) => (d.open = true));
+      recalc();
+    }).catch(() => alert('Fichier illisible : exportez un dossier depuis D-Fiscalisateur puis réimportez-le.'));
+  }
+
+  function copierCases() {
+    if (!derniereSimulation) return;
+    const lignes = derniereSimulation.final.cases.map(
+      (c) => `${c.form}\t${c.code}\t${c.libelle}\t${c.montant == null ? 'à cocher' : c.montant + ' €'}`
+    );
+    const texte = ['Formulaire\tCase\tIntitulé\tMontant', ...lignes].join('\n');
+    const bouton = $('btn-copier-cases');
+    const okVisuel = () => { bouton.textContent = '✅ Copié !'; setTimeout(() => (bouton.textContent = '📋 Copier la liste'), 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texte).then(okVisuel).catch(() => copieSecours(texte, okVisuel));
+    } else {
+      copieSecours(texte, okVisuel);
+    }
+  }
+  function copieSecours(texte, apres) {
+    const ta = document.createElement('textarea');
+    ta.value = texte;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); apres(); } catch (e) { /* rien */ }
+    ta.remove();
+  }
+
   /* ---------------- Rendu des résultats ---------------------------------- */
   const FORM_ORDER = ['2042', '2042-C', '2042-C-PRO', '2042-RICI', '2042-IOM', '2044'];
   const FORM_LIBELLES = {
@@ -348,8 +471,12 @@
   let timer = null;
   function recalc() {
     try {
-      const res = DFISC.simulateur.run(readState());
+      const state = readState();
+      const res = DFISC.simulateur.run(state);
+      derniereSimulation = res;
       render(res);
+      renderConseils(res, state);
+      sauvegarder();
     } catch (e) {
       console.error('Erreur de calcul :', e);
     }
@@ -366,10 +493,19 @@
     document.querySelector('.colonne-form').addEventListener('input', recalcDebounced);
     document.querySelector('.colonne-form').addEventListener('change', recalcDebounced);
     $('btn-exemple').addEventListener('click', chargerExemple);
-    $('btn-reset').addEventListener('click', () => reset(true));
+    $('btn-reset').addEventListener('click', () => { try { localStorage.removeItem(CLE_STOCKAGE); } catch (e) {} reset(true); });
     $('btn-print').addEventListener('click', () => window.print());
+    $('btn-export').addEventListener('click', exporterDossier);
+    $('btn-import').addEventListener('click', () => $('import-fichier').click());
+    $('import-fichier').addEventListener('change', (e) => { if (e.target.files[0]) importerDossier(e.target.files[0]); e.target.value = ''; });
+    $('btn-copier-cases').addEventListener('click', copierCases);
     // Ouvrir index.html#exemple pré-remplit une situation complète de démonstration.
-    if (location.hash === '#exemple') chargerExemple();
-    else recalc();
+    if (location.hash === '#exemple') {
+      chargerExemple();
+    } else {
+      // Restauration de la dernière saisie (sauvegarde automatique locale).
+      if (restaurer()) document.querySelectorAll('details.section').forEach((d) => (d.open = true));
+      recalc();
+    }
   });
 })();

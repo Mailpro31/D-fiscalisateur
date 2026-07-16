@@ -178,6 +178,47 @@ ul.pieces li { margin-bottom: 6px; }
 .tag-loc.locataire { background: var(--orange-clair); color: var(--orange); }
 .tag-loc.proprio { background: var(--vert-clair); color: var(--vert); }
 
+/* ----- Plan pluriannuel (conseiller) ----- */
+.potentiel {
+  background: var(--vert-clair);
+  color: var(--vert);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.conseil-groupe h3 {
+  font-size: 14px;
+  color: var(--bleu);
+  border-bottom: 2px solid var(--bleu-clair);
+  padding-bottom: 4px;
+  margin: 18px 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.conseil {
+  border: 1px solid var(--gris-bord);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.conseil.prio-1 { border-left-color: var(--vert); }
+.conseil.prio-2 { border-left-color: var(--bleu); }
+.conseil.prio-3 { border-left-color: var(--texte-2); }
+.conseil-tete { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.conseil p { margin: 6px 0 0; color: var(--texte-2); font-size: 13.5px; }
+.chip-cat {
+  background: var(--bleu-clair); color: var(--bleu);
+  border-radius: 5px; font-size: 11px; font-weight: 700; padding: 2px 8px; text-transform: uppercase;
+}
+.chip-prio { border-radius: 5px; font-size: 11px; font-weight: 700; padding: 2px 8px; }
+.chip-prio.p1 { background: var(--vert-clair); color: var(--vert); }
+.chip-prio.p2 { background: var(--bleu-clair); color: var(--bleu); }
+.chip-prio.p3 { background: var(--gris-fond); color: var(--texte-2); }
+.badge-gain { margin-left: auto; background: var(--vert); color: #fff; border-radius: 6px; padding: 3px 10px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.note-sauvegarde { align-self: center; font-size: 12px; color: var(--texte-2); cursor: help; }
+
 /* ----- Analyseur de documents ----- */
 .dropzone {
   border: 2px dashed var(--bleu);

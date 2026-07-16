@@ -27,7 +27,11 @@
     <div class="toolbar">
       <button id="btn-exemple" class="secondaire" type="button">Charger un exemple complet</button>
       <button id="btn-reset" class="secondaire" type="button">Tout remettre à zéro</button>
+      <button id="btn-export" class="secondaire" type="button" title="Télécharge votre saisie dans un fichier JSON (à conserver, rien ne quitte votre machine)">💾 Exporter le dossier</button>
+      <button id="btn-import" class="secondaire" type="button" title="Recharge un dossier exporté précédemment">📂 Importer</button>
+      <input type="file" id="import-fichier" accept="application/json,.json" style="display:none" />
       <button id="btn-print" type="button">🖨 Imprimer / exporter la synthèse</button>
+      <span class="note-sauvegarde" id="note-sauvegarde" title="Votre saisie est conservée automatiquement dans ce navigateur (localStorage), jamais envoyée sur internet.">💾 sauvegarde automatique activée</span>
     </div>
 
     <div class="layout">
@@ -448,7 +452,9 @@
 
     <!-- ============================ CASES DÉCLARATION ============================ -->
     <div class="carte" style="margin-top:20px">
-      <h2>📋 Cases à remplir sur la déclaration 2026 (revenus 2025) — avec les montants</h2>
+      <h2>📋 Cases à remplir sur la déclaration 2026 (revenus 2025) — avec les montants
+        <button id="btn-copier-cases" class="secondaire" type="button" style="float:right;font-size:13px;padding:6px 12px">📋 Copier la liste</button>
+      </h2>
       <p class="help">Reportez ces montants dans votre déclaration en ligne (ou formulaires papier 2042, 2042-RICI,
         2042-C-PRO, 2044…). Les lignes <span class="badge-verif">à vérifier</span> portent des numéros susceptibles de
         changer d'un millésime à l'autre : repérez la ligne au libellé équivalent.</p>
@@ -456,6 +462,16 @@
         <thead><tr><th style="width:130px">Case</th><th>Intitulé</th><th style="width:110px;text-align:right">Montant</th></tr></thead>
         <tbody></tbody>
       </table></div>
+    </div>
+
+    <!-- ============================ PLAN PLURIANNUEL ============================ -->
+    <div class="carte" style="margin-top:20px" id="carte-conseils">
+      <h2>🎯 Plan d'optimisation pour les années suivantes (N+1, N+2, N+3)</h2>
+      <p class="help">Propositions générées à partir de votre simulation de l'année N : marges inutilisées, échéances à
+        anticiper, investissements à étaler. Gains estimés <strong>à revenus constants</strong>, à votre taux marginal
+        actuel (+ 17,2 % quand le levier réduit des revenus du patrimoine) — des ordres de grandeur à faire valider,
+        pas des promesses.</p>
+      <div id="res_conseils"></div>
     </div>
 
     <!-- ============================ GUIDES ============================ -->
@@ -521,6 +537,7 @@
   <script src="js/engine/plafonnement.js"></script>
   <script src="js/engine/simulateur.js"></script>
   <script src="js/engine/classifieur.js"></script>
+  <script src="js/engine/conseiller.js"></script>
   <script src="js/app.js"></script>
   <script src="js/ocr/analyseur.js"></script>
 </body>
