@@ -17,6 +17,7 @@ R('js/engine/per.js');
 R('js/engine/dispositifs.js');
 R('js/engine/plafonnement.js');
 R('js/engine/simulateur.js');
+R('js/engine/classifieur.js');
 
 const DFISC = globalThis.DFISC;
 const P = DFISC.PARAMS;
@@ -210,6 +211,59 @@ etat3.famille.emploiDomicile.depenses = 12000; // 6 000 € de crédit
 etat3.dispositifs.censi = 4000; // 4 000 € de réduction → total plafonnable 13 000 €
 const res3 = DFISC.simulateur.run(etat3);
 assertClose(res3.final.plafonnement.reprise, 3000, 1, 'Reprise de 3 000 € (13 000 € d\'avantages vs plafond 10 000 €)');
+
+/* ---------------- 8. Classifieur de documents de charges ------------------ */
+console.log('\n■ Classifieur — répartition locataire/propriétaire (décret 87-713)');
+const DECOMPTE = `DECOMPTE DE CHARGES 2025 - LOT 12
+Entretien parties communes           312,45
+Electricité parties communes          85,10
+Eau froide des locataires            420,00
+TEOM                                 240,00
+Salaire gardien                    1 000,00
+Honoraires syndic                    480,00
+Assurance multirisque immeuble       210,50
+Ravalement façade                  3 250,00
+Provision pour charges 2025        1 200,00
+TOTAL GENERAL                      7 198,05`;
+
+const ana = DFISC.classifieur.analyserTexte(DECOMPTE, { mode: 'nue', source: 'decompte.pdf' });
+const parCat = Object.fromEntries(ana.items.map((i) => [i.categorie, i]));
+assertEqual(parCat.teom && parCat.teom.montant, 240, 'TEOM détectée (récupérable)');
+assertEqual(parCat.nettoyage && parCat.nettoyage.montant, 312.45, 'Entretien parties communes → récupérable');
+assertEqual(parCat.gardien && parCat.gardien.montant, 1000, 'Gardien détecté (mixte 75/25)');
+assertEqual(parCat.travaux && parCat.travaux.montant, 3250, 'Ravalement → travaux ligne 224');
+assertEqual(parCat.ignorer_total && Math.round(parCat.ignorer_total.montant), 7198, 'Ligne TOTAL ignorée (pas de double compte)');
+assertEqual(ana.items.some((i) => i.categorie === 'inconnu'), false, 'Bruit « LOT 12 » écarté');
+
+assertClose(ana.totaux.recuperable, 312.45 + 85.1 + 420 + 240 + 750, 0.01, 'Total récupérable locataire (gardien à 75 %)');
+assertClose(ana.totaux.deductible, 250 + 480 + 210.5 + 3250 + 1200, 0.01, 'Total déductible propriétaire');
+assertClose(ana.totaux.parChamp.travaux, 3250, 0.01, 'Champ simulateur « travaux »');
+assertClose(ana.totaux.parChamp.copro, 1200, 0.01, 'Champ simulateur « provisions copro » (ligne 229)');
+assertClose(ana.totaux.parLigne2044['223'], 210.5, 0.01, 'Ligne 223 (assurance)');
+
+const anaMeuble = DFISC.classifieur.analyserTexte(DECOMPTE, { mode: 'meuble' });
+assertClose(anaMeuble.totaux.deductible, 7198.05, 0.05, 'En meublé (BIC) : tout est déductible');
+assertClose(anaMeuble.totaux.recuperable, 0, 0.01, 'En meublé : pas de part récupérable non déductible');
+
+const AVIS_TF = `AVIS DE TAXE FONCIERE 2025
+Taxe fonciere sur les proprietes baties : cotisation 1 450
+Taxe d'enlevement des ordures menageres 260
+Interets d'emprunt 2025 : 3 214,00
+Assurance emprunteur 180,00`;
+const anaTF = DFISC.classifieur.analyserTexte(AVIS_TF, { mode: 'nue' });
+const catsTF = anaTF.items.map((i) => i.categorie);
+assertEqual(catsTF.includes('taxe_fonciere'), true, 'Taxe foncière détectée (1 450 € — pas l\'année 2025)');
+assertEqual(anaTF.items.find((i) => i.categorie === 'taxe_fonciere').montant, 1450, 'Montant TF = 1 450 €');
+assertEqual(catsTF.includes('teom'), true, 'TEOM de l\'avis détectée (récupérable)');
+assertEqual(anaTF.items.find((i) => i.categorie === 'interets').montant, 3214, 'Intérêts 3 214 € (année 2025 ignorée)');
+assertClose(anaTF.totaux.parChamp.interets, 3214 + 180, 0.01, 'Assurance emprunteur cumulée avec les intérêts (ligne 250)');
+
+const anaRegul = DFISC.classifieur.analyserTexte('Régularisation charges exercice 2024 : 350,00', { mode: 'nue' });
+assertClose(anaRegul.totaux.reintegration || 0, 350, 0.01, 'Régularisation N-1 → réintégration ligne 230');
+assertClose(anaRegul.totaux.deductible, 0, 0.01, 'Régularisation non comptée en déduction');
+
+const montantTest = DFISC.classifieur.extraireMontant('Remplacement chaudière collective 12.480,00 EUR');
+assertClose(montantTest.montant, 12480, 0.01, 'Format « 12.480,00 » (points de milliers) parsé');
 
 /* ---------------- Bilan --------------------------------------------------- */
 console.log(`\n${ok} tests OK, ${ko} échec(s).`);

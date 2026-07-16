@@ -178,6 +178,41 @@ ul.pieces li { margin-bottom: 6px; }
 .tag-loc.locataire { background: var(--orange-clair); color: var(--orange); }
 .tag-loc.proprio { background: var(--vert-clair); color: var(--vert); }
 
+/* ----- Analyseur de documents ----- */
+.dropzone {
+  border: 2px dashed var(--bleu);
+  border-radius: var(--radius);
+  background: var(--bleu-clair);
+  color: var(--bleu);
+  text-align: center;
+  padding: 26px 14px;
+  cursor: pointer;
+  margin: 10px 0;
+  transition: background 0.15s;
+}
+.dropzone.survol, .dropzone:hover { background: #d3d3fb; }
+.dropzone small { color: var(--texte-2); display: block; margin-top: 6px; }
+.dropzone code { background: #fff; border-radius: 4px; padding: 0 4px; }
+#ana_texte {
+  width: 100%;
+  border: 1px solid var(--gris-bord);
+  border-radius: 6px;
+  padding: 9px 11px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+#ana_texte:focus { outline: 2px solid var(--bleu); }
+.progress-ocr { background: var(--gris-fond); border-radius: 99px; height: 10px; overflow: hidden; margin: 8px 0; }
+.progress-ocr > div { height: 100%; width: 0; background: var(--bleu); transition: width 0.2s; }
+table.analyse td { padding: 4px 8px; }
+table.analyse select { width: 100%; border: 1px solid var(--gris-bord); border-radius: 5px; padding: 4px 6px; font-size: 12.5px; }
+table.analyse input { border: 1px solid var(--gris-bord); border-radius: 5px; padding: 4px 6px; }
+tr.cat-recuperable td:first-child { box-shadow: inset 3px 0 0 var(--orange); }
+tr.cat-deductible td:first-child { box-shadow: inset 3px 0 0 var(--vert); }
+tr.cat-attention td:first-child { box-shadow: inset 3px 0 0 var(--rouge); }
+tr.cat-ignorer td { color: var(--texte-2); text-decoration: line-through; }
+
 footer.site { margin-top: 30px; padding: 18px 24px; font-size: 12.5px; color: var(--texte-2); border-top: 1px solid var(--gris-bord); background: #fff; }
 
 /* ----- Impression ----- */

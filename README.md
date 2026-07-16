@@ -11,13 +11,38 @@ Ouvrez simplement **`index.html`** dans un navigateur (double-clic suffit — to
 local, y compris depuis `file://`). Le bouton **« Charger un exemple complet »** (ou l'URL
 `index.html#exemple`) pré-remplit une situation de démonstration.
 
-```bash
-# Optionnel : servir la page
-python3 -m http.server 8000   # puis http://localhost:8000
+Pour activer l'**analyse de documents scannés** (OCR local), installez une fois les
+bibliothèques et servez la page en HTTP :
 
-# Lancer les tests du moteur de calcul (48 assertions chiffrées)
-node tests/run-tests.js
+```bash
+npm install                   # télécharge Tesseract.js + pdf.js et génère vendor/ (~10 Mo, non versionné)
+python3 -m http.server 8000   # puis http://localhost:8000 (l'OCR nécessite http://, pas file://)
+
+npm test                      # tests du moteur de calcul (69 assertions chiffrées)
+npm run test:e2e              # tests navigateur (OCR réel + interface), Chromium requis
 ```
+
+Sans `npm install`, tout le simulateur fonctionne normalement — seule la lecture de
+scans/PDF est désactivée (le **collage de texte** reste disponible dans la section 📎).
+
+## 📎 Analyse de documents de charges (scan, photo, PDF, texte)
+
+Déposez vos **décomptes de charges de copropriété**, avis de taxe foncière, relevés d'intérêts
+d'emprunt ou factures de travaux (JPG/PNG/PDF), ou collez leur texte. L'outil :
+
+1. lit le document **entièrement en local** : OCR Tesseract.js en français, PDF via pdf.js
+   (texte natif si présent, sinon rendu en image puis OCR) — aucune donnée n'est envoyée ;
+2. **classe chaque ligne** selon le décret n° 87-713 et l'art. 31 CGI : charge **récupérable sur
+   le locataire** (jamais déductible — TEOM, eau, chauffage collectif, entretien des communs,
+   ascenseur, gardien à 75 %…) ou charge **déductible du propriétaire**, avec la **ligne 2044**
+   correspondante (221, 222, 223, 224, 225, 226, 227, 229, 230, 250) ;
+3. affiche la **répartition proposée** dans un tableau corrigeable (montant et classement
+   modifiables ligne à ligne, lignes « TOTAL » ignorées pour éviter les doubles comptes,
+   gardien réparti 75 % locataire / 25 % propriétaire, régularisation N-1 signalée en
+   réintégration ligne 230, alerte construction/agrandissement non déductible) ;
+4. **reporte les totaux dans le simulateur** en un clic (mode location nue → champs 2044 ;
+   mode meublé LMNP → charges BIC, où tout ce que paie le propriétaire est déductible),
+   avec option « locataire parti sans rembourser » (ligne 225) et **annulation** possible.
 
 ## 🧰 Leviers couverts
 
@@ -90,12 +115,20 @@ js/engine/per.js              Plafonds PER, mutualisation couple
 js/engine/dispositifs.js      Toutes les réductions/crédits + leurs cases de déclaration
 js/engine/plafonnement.js     Plafonnement global des niches (10 k€/18 k€, retenue Girardin)
 js/engine/simulateur.js       Orchestration, scénario « sans leviers », impacts marginaux, cases
+js/engine/classifieur.js      Classification des lignes de charges (décret 87-713 → lignes 2044)
+js/ocr/analyseur.js           Analyse de documents : OCR local, PDF, tableau éditable, report
 js/app.js                     Contrôleur d'interface
-tests/run-tests.js            48 assertions chiffrées vérifiables à la main
+scripts/vendor.js             Copie Tesseract.js/pdf.js de node_modules vers vendor/ (post-install)
+tests/run-tests.js            69 assertions chiffrées vérifiables à la main
+tests/e2e.js                  Tests navigateur : OCR réel + parcours complet de l'interface
+tests/ocr-smoke.html          Page de test OCR autonome
 ```
 
-Le moteur est en JavaScript pur (pattern UMD : fonctionne dans le navigateur **et** sous Node pour
-les tests), sans aucune dépendance.
+Le moteur de calcul est en JavaScript pur (pattern UMD : navigateur **et** Node), sans aucune
+dépendance. Les seules dépendances (`tesseract.js`, `pdfjs-dist`, versions épinglées dans
+`package.json`/`package-lock.json`) servent exclusivement à la lecture locale des documents
+scannés ; elles sont copiées dans `vendor/` (non versionné) par `npm install`. Le PDF est ouvert
+avec `isEvalSupported: false` (mitigation CVE-2024-4367).
 
 ## ⚠️ Limites et avertissements
 

@@ -112,6 +112,49 @@
           </div>
         </details>
 
+        <!-- 3 bis. Analyse de documents de charges -->
+        <details class="section" id="section-analyse">
+          <summary><span class="num">📎</span> Analyser mes documents de charges (scan, photo, PDF ou texte)</summary>
+          <div class="section-corps">
+            <p class="help">Déposez vos <strong>décomptes de charges de copropriété</strong>, avis de taxe foncière,
+              relevés d'intérêts d'emprunt ou factures de travaux : l'outil lit le document (<strong>OCR 100 % local</strong> —
+              rien n'est envoyé sur internet), classe chaque ligne — <strong>récupérable sur le locataire</strong>
+              (non déductible) ou <strong>déductible du propriétaire</strong> avec la ligne 2044 correspondante,
+              selon le décret n° 87-713 — puis reporte la répartition dans le simulateur. Vous pouvez corriger
+              chaque ligne avant le report.</p>
+            <div class="grille" style="grid-template-columns:1fr 1fr">
+              <label class="fld-check" style="padding-top:0"><input type="radio" name="ana_mode" id="ana_mode_nue" checked /> Bien loué NU (2044 — déficit foncier)</label>
+              <label class="fld-check" style="padding-top:0"><input type="radio" name="ana_mode" id="ana_mode_meuble" /> Bien loué MEUBLÉ (LMNP au réel — tout est déductible en BIC)</label>
+            </div>
+            <div class="dropzone" id="ana_drop">📎 <strong>Cliquez ou déposez ici</strong> vos scans (JPG/PNG), PDF ou fichiers texte<br />
+              <small>OCR local (Tesseract) : nécessite d'avoir lancé <code>npm install</code> une fois à la racine du projet — voir README.
+              Sans cela, utilisez le collage de texte ci-dessous, qui fonctionne toujours.</small>
+            </div>
+            <input type="file" id="ana_files" multiple accept="image/*,application/pdf,.txt,.csv" style="display:none" />
+            <div class="progress-ocr" id="ana_progress" style="display:none"><div></div></div>
+            <div class="alerte info" id="ana_status" style="display:none"></div>
+            <div class="sous-titre">… ou collez le texte du document</div>
+            <textarea id="ana_texte" rows="5" placeholder="Exemple :&#10;Entretien parties communes ....... 312,45&#10;TEOM ....... 240,00&#10;Ravalement façade ....... 3 250,00&#10;Honoraires syndic ....... 480,00&#10;Intérêts d'emprunt ....... 3 214,00"></textarea>
+            <div class="toolbar" style="margin-top:10px">
+              <button type="button" id="ana_btn_analyser" class="secondaire">🔎 Analyser le texte collé</button>
+              <button type="button" id="ana_btn_vider" class="secondaire">Vider l'analyse</button>
+            </div>
+            <div id="ana_resultats" style="display:none">
+              <div class="sous-titre">Répartition proposée — vérifiez et corrigez si besoin</div>
+              <div id="ana_synthese"></div>
+              <div class="cases-wrap"><table class="cases analyse" id="ana_table">
+                <thead><tr><th>Ligne du document</th><th style="width:130px">Montant</th><th style="width:340px">Classement fiscal proposé</th></tr></thead>
+                <tbody></tbody>
+              </table></div>
+              <label class="fld-check"><input type="checkbox" id="ana_impayes" /> Le locataire est parti sans rembourser ces charges récupérables → les déduire (ligne 225)</label>
+              <div class="toolbar" style="margin-top:10px">
+                <button type="button" id="ana_btn_reporter">➕ Reporter ces montants dans le simulateur</button>
+                <button type="button" id="ana_btn_annuler" class="secondaire" style="display:none">↩ Annuler le report</button>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <!-- 4. LMNP -->
         <details class="section">
           <summary><span class="num">4</span> Location meublée (LMNP) — amortissements</summary>
@@ -455,6 +498,8 @@
   <script src="js/engine/dispositifs.js"></script>
   <script src="js/engine/plafonnement.js"></script>
   <script src="js/engine/simulateur.js"></script>
+  <script src="js/engine/classifieur.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/ocr/analyseur.js"></script>
 </body>
 </html>
