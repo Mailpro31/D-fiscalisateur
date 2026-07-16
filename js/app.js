@@ -98,6 +98,7 @@
         composants: lireComposants(),
         reportsAmortissements: num('lmnp_reportsAmort'),
         deficitsBicAnterieurs: num('lmnp_deficitsAnt'),
+        amortissementConnu: num('lmnp_amortConnu'),
         regime: $('lmnp_regime').value,
       },
       dispositifs: {
@@ -207,6 +208,109 @@
       html += '</div>';
     }
     zone.innerHTML = html;
+  }
+
+  /* ---------------- Comparateur de scénarios ------------------------------ */
+  const CLE_SCENARIOS = 'dfisc_scenarios_v1';
+  let scenarios = {};
+  try { scenarios = JSON.parse(localStorage.getItem(CLE_SCENARIOS) || '{}') || {}; } catch (e) { scenarios = {}; }
+
+  function resumeSimulation(res) {
+    return {
+      rni: res.final.rni,
+      tmi: res.final.ir.tmi,
+      irNet: res.final.irNet,
+      ps: res.final.ps,
+      total: res.final.total,
+      economie: res.economieTotale,
+    };
+  }
+
+  function memoriserScenario() {
+    if (!derniereSimulation) return;
+    const nom = ($('scn_nom').value || '').trim() || `Scénario ${Object.keys(scenarios).length + 1}`;
+    scenarios[nom] = { champs: collecterChamps(), resume: resumeSimulation(derniereSimulation) };
+    try { localStorage.setItem(CLE_SCENARIOS, JSON.stringify(scenarios)); } catch (e) {}
+    $('scn_nom').value = '';
+    renderComparateur();
+  }
+
+  function renderComparateur() {
+    const zone = $('scn_table');
+    const noms = Object.keys(scenarios);
+    if (!noms.length) {
+      zone.innerHTML = '<p style="color:var(--texte-2)">Aucun scénario mémorisé pour l\'instant : saisissez une situation, donnez-lui un nom et cliquez sur « Mémoriser ».</p>';
+      return;
+    }
+    const courant = derniereSimulation ? resumeSimulation(derniereSimulation) : null;
+    const colonnes = [['⏱ Situation actuelle', courant, null]].concat(noms.map((n) => [n, scenarios[n].resume, n]));
+    const lignes = [
+      ['Revenu net imposable', (r) => eur(r.rni)],
+      ['Tranche marginale', (r) => Math.round(r.tmi * 100) + ' %'],
+      ['IR net', (r) => eur(r.irNet)],
+      ['Prélèvements sociaux', (r) => eur(r.ps)],
+      ['Impôt total', (r) => eur(r.total) + (r.total < 0 ? ' (restitution)' : '')],
+      ['Économie vs sans leviers', (r) => eur(r.economie)],
+    ];
+    let html = '<table class="cases scn"><thead><tr><th></th>' +
+      colonnes.map(([nom, , cle]) =>
+        `<th>${nom}${cle ? `<br /><button type="button" class="mini" data-scn-charger="${cle.replace(/"/g, '&quot;')}">⤓ Charger</button>` +
+          ` <button type="button" class="mini danger" data-scn-suppr="${cle.replace(/"/g, '&quot;')}">✕</button>` : ''}</th>`).join('') +
+      '</tr></thead><tbody>';
+    for (const [libelle, format] of lignes) {
+      html += `<tr><td><strong>${libelle}</strong></td>` +
+        colonnes.map(([, r]) => `<td class="montant">${r ? format(r) : '—'}</td>`).join('') + '</tr>';
+    }
+    zone.innerHTML = html + '</tbody></table>';
+  }
+
+  function chargerScenario(nom) {
+    const scn = scenarios[nom];
+    if (!scn) return;
+    reset(false);
+    appliquerChamps(scn.champs);
+    document.querySelectorAll('details.section').forEach((d) => (d.open = true));
+    recalc();
+  }
+
+  function supprimerScenario(nom) {
+    delete scenarios[nom];
+    try { localStorage.setItem(CLE_SCENARIOS, JSON.stringify(scenarios)); } catch (e) {}
+    renderComparateur();
+  }
+
+  /* ---------------- Projection sur 10 ans --------------------------------- */
+  function renderProjection(state) {
+    const proj = DFISC.projection.projeter(state, {
+      annees: 10,
+      croissanceRevenus: num('proj_gR') || 0,
+      croissanceLoyers: num('proj_gL') || 0,
+      perRecurrent: chk('proj_per'),
+    }, P);
+
+    const graphe = $('proj_graphe');
+    const maxTotal = Math.max(1, ...proj.lignes.map((l) => Math.max(0, l.total)));
+    graphe.innerHTML = proj.lignes.map((l) => {
+      const h = Math.max(2, Math.round((Math.max(0, l.total) / maxTotal) * 130));
+      const drapeau = l.evenements.length ? `<span class="proj-flag" title="${l.evenements.join(' · ').replace(/"/g, '&quot;')}">⚑</span>` : '';
+      return `<div class="proj-col" title="${l.annee} : ${eur(l.total)}${l.evenements.length ? ' — ' + l.evenements.join(' · ') : ''}">
+        <span class="proj-val">${Math.round(l.total / 100) / 10} k€</span>
+        <div class="proj-barre" style="height:${h}px"></div>
+        <span class="proj-annee">${l.annee}${drapeau}</span>
+      </div>`;
+    }).join('');
+
+    const tbody = document.querySelector('#proj_table tbody');
+    tbody.innerHTML = proj.lignes.map((l) =>
+      `<tr${l.evenements.length ? ' style="background:var(--orange-clair)"' : ''}>
+        <td><strong>${l.annee}</strong></td>
+        <td class="montant">${eur(Math.max(0, l.irNet))}${l.irNet < 0 ? ` (+${eur(-l.irNet)})` : ''}</td>
+        <td class="montant">${eur(l.ps)}</td>
+        <td class="montant"><strong>${eur(l.total)}</strong></td>
+        <td class="montant">${eur(l.avantages)}</td>
+        <td class="montant">${eur(l.reportsFoncierRestants)}</td>
+        <td>${l.evenements.join(' · ') || ''}</td>
+      </tr>`).join('');
   }
 
   /* ---------------- Sauvegarde / export / import -------------------------- */
@@ -476,6 +580,8 @@
       derniereSimulation = res;
       render(res);
       renderConseils(res, state);
+      renderComparateur();
+      renderProjection(state);
       sauvegarder();
     } catch (e) {
       console.error('Erreur de calcul :', e);
@@ -499,6 +605,14 @@
     $('btn-import').addEventListener('click', () => $('import-fichier').click());
     $('import-fichier').addEventListener('change', (e) => { if (e.target.files[0]) importerDossier(e.target.files[0]); e.target.value = ''; });
     $('btn-copier-cases').addEventListener('click', copierCases);
+    $('scn_btn_memoriser').addEventListener('click', memoriserScenario);
+    $('scn_table').addEventListener('click', (e) => {
+      const charger = e.target.dataset && e.target.dataset.scnCharger;
+      const suppr = e.target.dataset && e.target.dataset.scnSuppr;
+      if (charger) chargerScenario(charger);
+      else if (suppr) supprimerScenario(suppr);
+    });
+    ['proj_gR', 'proj_gL', 'proj_per'].forEach((id) => $(id).addEventListener('input', recalcDebounced));
     // Ouvrir index.html#exemple pré-remplit une situation complète de démonstration.
     if (location.hash === '#exemple') {
       chargerExemple();

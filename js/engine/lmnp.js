@@ -15,6 +15,22 @@
 
   /** Plan d'amortissement annuel (linéaire, année pleine — prorata non géré). */
   function calcAmortissement(l, P) {
+    // Annuité déjà connue (liasse fiscale, FEC, expert-comptable) :
+    // elle remplace intégralement le calcul par composants.
+    const annuiteConnue = U.n(l.amortissementConnu);
+    if (annuiteConnue > 0) {
+      return {
+        baseBatie: 0,
+        terrain: 0,
+        composants: [],
+        annuiteComposants: annuiteConnue,
+        annuiteMobilier: 0,
+        annuiteTravaux: 0,
+        annuiteTotale: annuiteConnue,
+        fraisEnCharge: l.incorporerFrais ? 0 : U.n(l.fraisAcquisition),
+        source: 'connue',
+      };
+    }
     const prix = U.n(l.prixBien);
     const partTerrain = U.clamp(U.n(l.partTerrainPct) || P.LMNP.partTerrainDefaut, 0, 100) / 100;
     const frais = U.n(l.fraisAcquisition);

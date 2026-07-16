@@ -128,6 +128,10 @@
             texte = await texteDepuisImage(f, majProgression);
           } else {
             texte = await f.text(); // .txt, .csv…
+            if (DFISC.fec && DFISC.fec.estFEC(texte)) {
+              afficherFEC(DFISC.fec.analyser(texte), f.name);
+              continue;
+            }
           }
         } catch (e) {
           console.error(e);
@@ -263,6 +267,50 @@
     statut('Report annulé : les champs du simulateur ont retrouvé leurs valeurs.');
   }
 
+  /* ---------------- FEC comptable (LMNP au réel) ---------------- */
+  let dernierFEC = null;
+
+  function afficherFEC(fec, source) {
+    const zone = $('fec_resultat');
+    if (!fec.ok) {
+      zone.style.display = 'none';
+      return statut(`FEC « ${source} » : ${fec.erreur}`, true);
+    }
+    dernierFEC = fec;
+    zone.style.display = 'block';
+    const lg = (l, v) => `<tr><td>${l}</td><td class="montant">${eur(v)}</td></tr>`;
+    const detail = fec.detailComptes
+      .map((d) => `<tr><td style="color:var(--texte-2)">— compte ${d.compte}x ${echap(d.libelle)}</td><td class="montant" style="color:var(--texte-2)">${eur(d.montant)}</td></tr>`)
+      .join('');
+    $('fec_synthese').innerHTML =
+      `<table class="guide">` +
+      `<tr><td><strong>Exercice ${fec.exercice || '?'} — ${fec.nbEcritures} écritures (${echap(source)})</strong></td><td></td></tr>` +
+      lg('Recettes (loyers charges comprises, classe 70)', fec.recettes) +
+      lg('Charges déductibles (classe 6 hors intérêts/dotations)', fec.charges) +
+      lg("Intérêts d'emprunt (661)", fec.interets) +
+      lg('Dotations aux amortissements (681) → « annuité connue »', fec.amortissements) +
+      (fec.immobilisations ? lg('Immobilisations acquises (info)', fec.immobilisations) : '') +
+      detail +
+      `</table>` +
+      fec.alertes.map((a) => `<div class="alerte warn" style="margin-top:6px">${echap(a)}</div>`).join('');
+    statut(`FEC analysé : résultat comptable reconstitué. Vérifiez puis reportez dans la section LMNP.`);
+  }
+
+  function reporterFEC() {
+    if (!dernierFEC || !dernierFEC.ok) return;
+    $('lmnp_actif').checked = true;
+    $('lmnp_regime').value = 'reel';
+    $('lmnp_loyers').value = dernierFEC.recettes;
+    $('lmnp_charges').value = dernierFEC.charges;
+    $('lmnp_interets').value = dernierFEC.interets;
+    $('lmnp_amortConnu').value = dernierFEC.amortissements;
+    $('lmnp_loyers').dispatchEvent(new Event('input', { bubbles: true }));
+    statut(
+      `LMNP mis à jour depuis le FEC : ${eur(dernierFEC.recettes)} de recettes, ${eur(dernierFEC.charges)} de charges, ` +
+        `${eur(dernierFEC.interets)} d'intérêts, ${eur(dernierFEC.amortissements)} d'amortissements (plafonnés art. 39 C si besoin).`
+    );
+  }
+
   /* ---------------- divers UI ---------------- */
   function statut(txt, erreur) {
     const el = $('ana_status');
@@ -273,8 +321,10 @@
 
   function vider() {
     items = [];
+    dernierFEC = null;
     $('ana_texte').value = '';
     $('ana_resultats').style.display = 'none';
+    $('fec_resultat').style.display = 'none';
     $('ana_status').style.display = 'none';
     $('ana_btn_annuler').style.display = 'none';
     sauvegardeReport = null;
@@ -293,12 +343,14 @@
     $('ana_btn_analyser').addEventListener('click', () => {
       const txt = $('ana_texte').value;
       if (txt.trim().length < 4) return statut('Collez d\'abord le texte d\'un décompte, d\'un avis ou d\'une facture.', true);
+      if (DFISC.fec && DFISC.fec.estFEC(txt)) return afficherFEC(DFISC.fec.analyser(txt), 'texte collé');
       ajouterItems(txt, 'texte collé');
       statut(`${items.length} ligne(s) au total. Vérifiez le classement puis reportez dans le simulateur.`);
     });
     $('ana_btn_reporter').addEventListener('click', reporter);
     $('ana_btn_annuler').addEventListener('click', annulerReport);
     $('ana_btn_vider').addEventListener('click', vider);
+    $('fec_btn_reporter').addEventListener('click', reporterFEC);
 
     // Édition du tableau : montant ou catégorie
     document.querySelector('#ana_table tbody').addEventListener('input', (e) => {

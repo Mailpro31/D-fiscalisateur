@@ -118,6 +118,35 @@ TMI, + 17,2 % quand le levier réduit des revenus du patrimoine) :
 - **Divers** : étalement des réductions perdues, report automatique des dons (5 ans), lissage
   CEHR/quotient, avance de 60 % sur les crédits d'impôt en janvier.
 
+## 🔀 Comparateur de scénarios
+
+Mémorisez la situation actuelle sous un nom (« Sans investissement », « Avec le T2 de
+Bordeaux »…), modifiez le formulaire, comparez côte à côte (RNI, TMI, IR, prélèvements sociaux,
+impôt total, économie) et rechargez n'importe quel scénario en un clic. Conservé dans le
+navigateur.
+
+## 📈 Projection sur 10 ans
+
+Le simulateur complet est rejoué pour chaque année N à N+9 : croissance des revenus et des
+loyers paramétrable, dépenses « one-shot » (travaux, souscriptions, Girardin…) comptées
+uniquement l'année N, **reports enchaînés année après année** (déficits fonciers sur 10 ans,
+amortissements LMNP art. 39 C sans limite, déficits BIC meublés), **calendrier
+Pinel/Denormandie suivi** (prorogations à taux réduit, fin d'engagement), fin d'amortissement du
+mobilier. Graphique en barres + tableau annuel avec les **événements** (« Fin de la réduction
+Pinel », « Déficits fonciers consommés », « Mobilier amorti »…). Hypothèses simplificatrices
+affichées : barème et plafonds constants, intérêts d'emprunt constants, pas de nouveaux
+investissements.
+
+## 🧾 Import d'un FEC comptable (LMNP au réel)
+
+Déposez (ou collez) le **Fichier des Écritures Comptables** exporté par votre logiciel : détection
+automatique (en-têtes `JournalCode`/`CompteNum`, séparateur tab/`|`/`;`, colonnes Débit/Crédit ou
+Montant/Sens), agrégation par racine PCG — classe 70 → recettes, 661 → intérêts, **681 →
+dotations aux amortissements** (reportées dans le champ « annuité connue », qui remplace le
+calcul par composants tout en conservant le plafonnement de l'art. 39 C), autres classes 6 →
+charges — avec alertes sur les écritures atypiques (produits/charges exceptionnels, impôt sur
+les bénéfices, immobilisations acquises dans l'exercice).
+
 ## 💾 Confort d'utilisation
 
 - **Sauvegarde automatique** de la saisie dans le navigateur (localStorage — restaurée à

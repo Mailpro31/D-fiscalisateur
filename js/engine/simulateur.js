@@ -167,7 +167,8 @@
       a.alertes.forEach((t) => alertes.push({ niveau: 'info', texte: t }));
       if (a.cases) a.cases.forEach((c) => cases.push(c));
     };
-    add(D.pinel(s.dispositifs.pinel, P, P.MILLESIME.revenus));
+    // _anneeRevenus : surcharge utilisée par le module de projection pluriannuelle.
+    add(D.pinel(s.dispositifs.pinel, P, s._anneeRevenus || P.MILLESIME.revenus));
     add(D.locAvantages(s.dispositifs.locavantages, P));
     add(D.malraux(s.dispositifs.malraux, P));
     add(D.girardin(s.dispositifs.girardin, P));
@@ -250,7 +251,7 @@
   const LEVIERS = [
     { cle: 'per', libelle: 'Plan d\'épargne retraite (PER)', actif: (s) => U.n(s.per.versements1) + U.n(s.per.versements2) > 0, neutraliser: (s) => { s.per.versements1 = 0; s.per.versements2 = 0; } },
     { cle: 'deficitFoncier', libelle: 'Déficit foncier (travaux au régime réel)', actif: (s) => s.foncier.actif && U.n(s.foncier.travaux) + U.n(s.foncier.travauxRenov) > 0, neutraliser: (s) => { s.foncier.travaux = 0; s.foncier.travauxRenov = 0; } },
-    { cle: 'lmnpAmortissements', libelle: 'LMNP au réel (amortissements)', actif: (s) => s.lmnp.actif && U.n(s.lmnp.prixBien) + U.n(s.lmnp.mobilier) + U.n(s.lmnp.travaux) > 0, neutraliser: (s) => { s.lmnp.prixBien = 0; s.lmnp.mobilier = 0; s.lmnp.travaux = 0; s.lmnp.fraisAcquisition = 0; s.lmnp.reportsAmortissements = 0; s.lmnp.regime = 'auto'; } },
+    { cle: 'lmnpAmortissements', libelle: 'LMNP au réel (amortissements)', actif: (s) => s.lmnp.actif && U.n(s.lmnp.prixBien) + U.n(s.lmnp.mobilier) + U.n(s.lmnp.travaux) + U.n(s.lmnp.amortissementConnu) > 0, neutraliser: (s) => { s.lmnp.prixBien = 0; s.lmnp.mobilier = 0; s.lmnp.travaux = 0; s.lmnp.fraisAcquisition = 0; s.lmnp.reportsAmortissements = 0; s.lmnp.amortissementConnu = 0; s.lmnp.regime = 'auto'; } },
     { cle: 'pinel', libelle: 'Pinel / Denormandie', actif: (s) => s.dispositifs.pinel && s.dispositifs.pinel.actif, neutraliser: (s) => { s.dispositifs.pinel.actif = false; } },
     { cle: 'locavantages', libelle: "Loc'Avantages", actif: (s) => s.dispositifs.locavantages && s.dispositifs.locavantages.actif, neutraliser: (s) => { s.dispositifs.locavantages.actif = false; } },
     { cle: 'malraux', libelle: 'Malraux', actif: (s) => U.n(s.dispositifs.malraux && s.dispositifs.malraux.travaux) > 0, neutraliser: (s) => { s.dispositifs.malraux.travaux = 0; } },

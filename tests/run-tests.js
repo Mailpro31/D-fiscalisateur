@@ -19,6 +19,8 @@ R('js/engine/plafonnement.js');
 R('js/engine/simulateur.js');
 R('js/engine/classifieur.js');
 R('js/engine/conseiller.js');
+R('js/engine/projection.js');
+R('js/engine/fec.js');
 
 const DFISC = globalThis.DFISC;
 const P = DFISC.PARAMS;
@@ -349,6 +351,75 @@ etatRenov.foncier = { actif: true, loyers: 9000, nbLocaux: 1, travaux: 2000, tra
 const runRenov = DFISC.simulateur.run(etatRenov);
 const consRenov = DFISC.conseiller.generer(runRenov, etatRenov, P);
 assertEqual(consRenov.conseils.some((c) => /21 400|fin 2025|31\/12\/2025/.test(c.titre + c.detail)), true, 'Alerte deadline rénovation énergétique (dépenses payées fin 2025)');
+
+/* ---------------- 11. Projection sur 10 ans -------------------------------- */
+console.log('\n■ Projection pluriannuelle — reports enchaînés et calendrier Pinel');
+
+// Déficit foncier : le report créé en année 0 se consomme en année 1
+const etatProj = etatVide();
+etatProj.revenus.salaires1 = 60000;
+etatProj.foncier = { actif: true, loyers: 10000, nbLocaux: 1, travaux: 30000, interets: 0, regime: 'reel', deficitsAnterieurs: 0 };
+const proj1 = DFISC.projection.projeter(etatProj, { annees: 3, croissanceRevenus: 0, croissanceLoyers: 0 }, P);
+assertEqual(proj1.lignes.length, 3, 'Projection : 3 lignes demandées');
+assertClose(proj1.lignes[0].reportsFoncierRestants, 9320, 1, 'Année N : report foncier créé (30 020 − 10 000 − 10 700)');
+assertEqual(proj1.lignes[1].reportsFoncierRestants, 0, 'Année N+1 : report entièrement consommé par le bénéfice foncier');
+assertEqual(proj1.lignes[1].evenements.some((e) => /consommés/.test(e)), true, 'Événement « reports consommés » émis');
+assertEqual(proj1.lignes[2].total > proj1.lignes[1].total, true, 'Année N+2 : impôt remonte (plus de reports, loyers pleinement imposés)');
+
+// Calendrier Pinel : fin d'engagement visible dans la projection
+const etatProjPinel = etatVide();
+etatProjPinel.revenus.salaires1 = 60000;
+etatProjPinel.dispositifs.pinel = { actif: true, generation: 'pinel2022', base: 200000, dureeInitiale: 6, duree: 6, anneePremiere: 2021 };
+const proj2 = DFISC.projection.projeter(etatProjPinel, { annees: 4, croissanceRevenus: 0, croissanceLoyers: 0 }, P);
+assertClose(proj2.lignes[0].pinel, 4000, 1, 'Année N (rang 5/6) : réduction Pinel 4 000 €');
+assertClose(proj2.lignes[1].pinel, 4000, 1, 'Année N+1 (rang 6/6) : dernière annuité');
+assertEqual(proj2.lignes[2].pinel, 0, 'Année N+2 : plus de réduction');
+assertEqual(proj2.lignes[2].evenements.some((e) => /Fin de la réduction/.test(e)), true, 'Événement « fin Pinel » émis');
+assertEqual(proj2.lignes[2].total - proj2.lignes[1].total >= 3999, true, 'L\'impôt augmente du montant de la réduction perdue');
+
+// Croissance des revenus appliquée
+const proj3 = DFISC.projection.projeter(etatProj, { annees: 2, croissanceRevenus: 10, croissanceLoyers: 0 }, P);
+assertEqual(proj3.lignes[1].rni > proj3.lignes[0].rni, true, 'Croissance des revenus répercutée sur le RNI');
+
+/* ---------------- 12. Import FEC (LMNP au réel) ---------------------------- */
+console.log('\n■ FEC — reconstitution du résultat LMNP');
+const FEC = [
+  'JournalCode\tJournalLib\tEcritureNum\tEcritureDate\tCompteNum\tCompteLib\tCompAuxNum\tCompAuxLib\tPieceRef\tPieceDate\tEcritureLib\tDebit\tCredit\tEcritureLet\tDateLet\tValidDate\tMontantdevise\tIdevise',
+  'VE\tVentes\t1\t20250131\t706000\tLoyers meublés\t\t\tF1\t20250131\tLoyer janvier\t0,00\t1040,00\t\t\t20250131\t\t',
+  'VE\tVentes\t2\t20250228\t706000\tLoyers meublés\t\t\tF2\t20250228\tLoyer février\t0,00\t11440,00\t\t\t20250228\t\t',
+  'AC\tAchats\t3\t20250310\t615200\tEntretien immeuble\t\t\tF3\t20250310\tPlomberie\t800,00\t0,00\t\t\t20250310\t\t',
+  'AC\tAchats\t4\t20250315\t606300\tFournitures\t\t\tF4\t20250315\tPetit équipement\t300,00\t0,00\t\t\t20250315\t\t',
+  'BQ\tBanque\t5\t20250401\t661100\tIntérêts des emprunts\t\t\tE1\t20250401\tÉchéance prêt\t2100,50\t0,00\t\t\t20250401\t\t',
+  'OD\tOD\t6\t20251231\t681100\tDotations amortissements\t\t\tOD1\t20251231\tDotation 2025\t7500,00\t0,00\t\t\t20251231\t\t',
+  'OD\tOD\t7\t20251231\t775000\tProduits cessions\t\t\tOD2\t20251231\tCession\t0,00\t500,00\t\t\t20251231\t\t',
+  'AC\tAchats\t8\t20250620\t218300\tMatériel informatique\t\t\tF5\t20250620\tOrdinateur\t2000,00\t0,00\t\t\t20250620\t\t',
+  'BQ\tBanque\t9\t20250401\t512000\tBanque\t\t\tE1\t20250401\tMouvement\t0,00\t2100,50\t\t\t20250401\t\t',
+].join('\n');
+assertEqual(DFISC.fec.estFEC(FEC), true, 'FEC reconnu par ses en-têtes');
+const fec = DFISC.fec.analyser(FEC);
+assertEqual(fec.ok, true, 'Analyse FEC réussie');
+assertEqual(fec.exercice, '2025', 'Exercice détecté');
+assertClose(fec.recettes, 12480, 0.01, 'Recettes classe 70 (produits exceptionnels exclus)');
+assertClose(fec.charges, 1100, 0.01, 'Charges classe 6 (hors 661/681)');
+assertClose(fec.interets, 2100.5, 0.01, 'Intérêts 661');
+assertClose(fec.amortissements, 7500, 0.01, 'Dotations 681');
+assertClose(fec.immobilisations, 2000, 0.01, 'Immobilisations 21x signalées');
+assertEqual(fec.alertes.length >= 2, true, 'Alertes (produit exceptionnel + immobilisations) émises');
+
+// Variante Montant/Sens
+const FEC2 = 'JournalCode|JournalLib|EcritureNum|EcritureDate|CompteNum|CompteLib|Montant|Sens\n' +
+  'VE|Ventes|1|20250131|706000|Loyers|5000,00|C\nAC|Achats|2|20250210|615000|Entretien|400,00|D';
+const fec2 = DFISC.fec.analyser(FEC2);
+assertClose(fec2.recettes, 5000, 0.01, 'Variante Montant/Sens : recettes');
+assertClose(fec2.charges, 400, 0.01, 'Variante Montant/Sens : charges');
+
+// L'annuité « connue » remplace le calcul par composants et subit l'art. 39 C
+const lmFEC = DFISC.lmnp.calcLMNP(
+  { actif: true, type: 'longue', loyers: 12480, charges: 1100, interets: 2100.5, amortissementConnu: 7500, prixBien: 0, incorporerFrais: true, regime: 'reel' },
+  P
+);
+assertClose(lmFEC.amortissement.annuiteTotale, 7500, 0.01, 'Annuité connue utilisée telle quelle');
+assertClose(lmFEC.netImposable, 12480 - 1100 - 2100.5 - 7500, 1, 'Bénéfice LMNP reconstitué depuis le FEC');
 
 /* ---------------- Bilan --------------------------------------------------- */
 console.log(`\n${ok} tests OK, ${ko} échec(s).`);

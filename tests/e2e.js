@@ -142,6 +142,12 @@ const assert = (cond, label, detail) => {
     const nbCases = await page2.locator('#res_cases tbody tr:not(.groupe)').count();
     const nbConseils = await page2.locator('#res_conseils .conseil').count();
     const texteConseils = await page2.locator('#res_conseils').textContent();
+    const nbLignesProj = await page2.locator('#proj_table tbody tr').count();
+    const texteProj = await page2.locator('#proj_table').textContent();
+    assert(nbLignesProj === 10, `Projection : 10 années affichées (${nbLignesProj})`);
+    assert(/2034/.test(texteProj), 'Projection : dernière année 2034 présente');
+    assert(/Fin de la réduction/.test(texteProj), 'Projection : fin du Pinel 2024 (9 ans) détectée en 2033');
+    assert((await page2.locator('#proj_graphe .proj-col').count()) === 10, 'Projection : graphique en barres rendu');
     assert(nbConseils >= 3, `Plan pluriannuel : ${nbConseils} propositions générées`);
     // L'exemple est en rang 2/9 du Pinel à taux constant : aucune échéance à signaler,
     // mais la deadline rénovation énergétique et les amortissements doivent apparaître.
@@ -162,7 +168,47 @@ const assert = (cond, label, detail) => {
     await page3.click('#btn-reset');
     await page3.reload();
     assert((await page3.inputValue('#rev_salaires1')) === '', '« Tout remettre à zéro » efface aussi la sauvegarde');
+
+    /* ---------- 5. Comparateur de scénarios ---------- */
+    console.log('\n■ E2E — comparateur de scénarios');
+    await page3.evaluate(() => localStorage.clear());
+    await page3.reload();
+    await page3.fill('#rev_salaires1', '50000');
+    await page3.waitForTimeout(400);
+    await page3.fill('#scn_nom', 'Base');
+    await page3.click('#scn_btn_memoriser');
+    await page3.fill('#rev_salaires1', '80000');
+    await page3.waitForTimeout(400);
+    const texteScn = await page3.locator('#scn_table').textContent();
+    assert(/Base/.test(texteScn), 'Colonne « Base » présente dans le comparateur');
+    assert(/Situation actuelle/.test(texteScn), 'Colonne « Situation actuelle » présente');
+    await page3.click('[data-scn-charger="Base"]');
+    await page3.waitForTimeout(300);
+    assert((await page3.inputValue('#rev_salaires1')) === '50000', '« Charger » restaure la saisie du scénario');
     await page3.close();
+
+    /* ---------- 6. Import FEC (texte collé) ---------- */
+    console.log('\n■ E2E — import FEC LMNP');
+    const page4 = await navigateur.newPage();
+    await page4.goto(`http://127.0.0.1:${PORT}/index.html`);
+    await page4.evaluate(() => localStorage.clear());
+    await page4.click('#section-analyse summary');
+    await page4.fill('#ana_texte', [
+      'JournalCode\tJournalLib\tEcritureNum\tEcritureDate\tCompteNum\tCompteLib\tDebit\tCredit',
+      'VE\tVentes\t1\t20250131\t706000\tLoyers meublés\t0,00\t12480,00',
+      'AC\tAchats\t2\t20250310\t615200\tEntretien\t800,00\t0,00',
+      'BQ\tBanque\t3\t20250401\t661100\tIntérêts emprunt\t2100,50\t0,00',
+      'OD\tOD\t4\t20251231\t681100\tDotations amortissements\t7500,00\t0,00',
+    ].join('\n'));
+    await page4.click('#ana_btn_analyser');
+    await page4.waitForSelector('#fec_resultat', { state: 'visible' });
+    const texteFEC = await page4.locator('#fec_synthese').textContent();
+    assert(/12\s*480/.test(texteFEC), 'FEC : recettes 12 480 € affichées');
+    await page4.click('#fec_btn_reporter');
+    assert(parseFloat(await page4.inputValue('#lmnp_loyers')) === 12480, 'Champ loyers LMNP rempli depuis le FEC');
+    assert(parseFloat(await page4.inputValue('#lmnp_amortConnu')) === 7500, 'Annuité connue remplie depuis les dotations 681');
+    assert(await page4.isChecked('#lmnp_actif'), 'Section LMNP activée');
+    await page4.close();
     assert(/[1-9]/.test(ecoExemple), `Exemple : économie affichée (${ecoExemple.trim()})`);
     assert(nbCases >= 20, `Exemple : ${nbCases} lignes de cases générées`);
   } finally {

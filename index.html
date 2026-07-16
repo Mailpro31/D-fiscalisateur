@@ -130,9 +130,9 @@
               <label class="fld-check" style="padding-top:0"><input type="radio" name="ana_mode" id="ana_mode_nue" checked /> Bien loué NU (2044 — déficit foncier)</label>
               <label class="fld-check" style="padding-top:0"><input type="radio" name="ana_mode" id="ana_mode_meuble" /> Bien loué MEUBLÉ (LMNP au réel — tout est déductible en BIC)</label>
             </div>
-            <div class="dropzone" id="ana_drop">📎 <strong>Cliquez ou déposez ici</strong> vos scans (JPG/PNG), PDF ou fichiers texte<br />
+            <div class="dropzone" id="ana_drop">📎 <strong>Cliquez ou déposez ici</strong> vos scans (JPG/PNG), PDF, fichiers texte — ou un <strong>FEC comptable</strong> (LMNP au réel)<br />
               <small>OCR local (Tesseract) : nécessite d'avoir lancé <code>npm install</code> une fois à la racine du projet — voir README.
-              Sans cela, utilisez le collage de texte ci-dessous, qui fonctionne toujours.</small>
+              Sans cela, utilisez le collage de texte ci-dessous, qui fonctionne toujours. Un FEC est détecté automatiquement.</small>
             </div>
             <input type="file" id="ana_files" multiple accept="image/*,application/pdf,.txt,.csv" style="display:none" />
             <div class="progress-ocr" id="ana_progress" style="display:none"><div></div></div>
@@ -154,6 +154,14 @@
               <div class="toolbar" style="margin-top:10px">
                 <button type="button" id="ana_btn_reporter">➕ Reporter ces montants dans le simulateur</button>
                 <button type="button" id="ana_btn_annuler" class="secondaire" style="display:none">↩ Annuler le report</button>
+              </div>
+            </div>
+
+            <div id="fec_resultat" style="display:none">
+              <div class="sous-titre">🧾 FEC comptable détecté — résultat de l'exercice</div>
+              <div id="fec_synthese"></div>
+              <div class="toolbar" style="margin-top:10px">
+                <button type="button" id="fec_btn_reporter">➕ Reporter dans la section LMNP (remplace les valeurs)</button>
               </div>
             </div>
 
@@ -221,6 +229,7 @@
               <label class="fld"><span>Durée travaux (ans)</span><input type="number" id="lmnp_dureeTravaux" min="1" value="15" /></label>
               <label class="fld"><span>Amortissements reportés (art. 39 C, années antérieures)</span><input type="number" id="lmnp_reportsAmort" min="0" /></label>
               <label class="fld"><span>Déficits LMNP antérieurs (10 ans)</span><input type="number" id="lmnp_deficitsAnt" min="0" /></label>
+              <label class="fld"><span>Annuité d'amortissement si déjà connue <span class="hint" title="Dotation figurant sur votre liasse 2033 ou importée d'un FEC : elle remplace le calcul par composants ci-dessous.">?</span></span><input type="number" id="lmnp_amortConnu" min="0" placeholder="calcul auto" /></label>
             </div>
             <table class="composants-table" id="lmnp_composants">
               <thead><tr><th>Composant (répartition de la valeur bâtie)</th><th>%</th><th>Durée (ans)</th><th>Annuité</th></tr></thead>
@@ -474,6 +483,39 @@
       <div id="res_conseils"></div>
     </div>
 
+    <!-- ============================ COMPARATEUR ============================ -->
+    <div class="carte" style="margin-top:20px" id="carte-comparateur">
+      <h2>🔀 Comparateur de scénarios</h2>
+      <p class="help">Mémorisez votre situation actuelle sous un nom (« Sans investissement », « Avec le T2 de Bordeaux »…),
+        modifiez le formulaire (« et si j'achetais ce bien ? », « et si je versais plus sur le PER ? »), puis comparez
+        côte à côte. Les scénarios sont conservés dans votre navigateur ; « Charger » restaure la saisie complète.</p>
+      <div class="toolbar">
+        <input type="text" id="scn_nom" placeholder="Nom du scénario (ex. Avec LMNP)" style="border:1px solid var(--gris-bord);border-radius:7px;padding:8px 11px;font-size:14px;min-width:230px" />
+        <button type="button" id="scn_btn_memoriser">📸 Mémoriser la situation actuelle</button>
+      </div>
+      <div class="cases-wrap" id="scn_table"></div>
+    </div>
+
+    <!-- ============================ PROJECTION 10 ANS ============================ -->
+    <div class="carte" style="margin-top:20px" id="carte-projection">
+      <h2>📈 Projection sur 10 ans</h2>
+      <p class="help">Le simulateur est rejoué pour chaque année : croissance des revenus et des loyers paramétrable,
+        dépenses « one-shot » (travaux, souscriptions…) comptées uniquement l'année N, <strong>reports enchaînés</strong>
+        (déficits fonciers 10 ans, amortissements LMNP art. 39 C, déficits BIC), calendrier Pinel suivi (prorogations,
+        fin d'engagement), fin d'amortissement du mobilier. Hypothèses simplificatrices : barème et plafonds constants,
+        intérêts d'emprunt constants, pas de nouveaux investissements.</p>
+      <div class="grille" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
+        <label class="fld"><span>Croissance annuelle des revenus d'activité (%)</span><input type="number" id="proj_gR" value="1.5" step="0.1" /></label>
+        <label class="fld"><span>Croissance annuelle des loyers (%) — IRL</span><input type="number" id="proj_gL" value="2" step="0.1" /></label>
+        <label class="fld-check"><input type="checkbox" id="proj_per" checked /> Versements PER reconduits chaque année</label>
+      </div>
+      <div id="proj_graphe" class="proj-graphe"></div>
+      <div class="cases-wrap"><table class="cases" id="proj_table">
+        <thead><tr><th>Année</th><th style="text-align:right">IR net</th><th style="text-align:right">Prélèv. sociaux</th><th style="text-align:right">Impôt total</th><th style="text-align:right">Réductions + crédits</th><th style="text-align:right">Reports fonciers restants</th><th>Événements</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
     <!-- ============================ GUIDES ============================ -->
     <details class="section" id="guide-charges" style="margin-top:20px">
       <summary><span class="num">📖</span> Guide — charges du locataire vs charges du propriétaire (ce qu'il faut fournir)</summary>
@@ -538,6 +580,8 @@
   <script src="js/engine/simulateur.js"></script>
   <script src="js/engine/classifieur.js"></script>
   <script src="js/engine/conseiller.js"></script>
+  <script src="js/engine/projection.js"></script>
+  <script src="js/engine/fec.js"></script>
   <script src="js/app.js"></script>
   <script src="js/ocr/analyseur.js"></script>
 </body>
