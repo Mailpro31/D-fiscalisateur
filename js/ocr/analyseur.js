@@ -314,6 +314,43 @@
     // Changement de mode nue/meublé : resynthétiser
     ['ana_mode_nue', 'ana_mode_meuble'].forEach((id) => $(id).addEventListener('change', () => { rendreTable(); }));
 
+    /* ----- Assistant copropriété (lignes 229/230) ----- */
+    const champsCopro = ['cop_provisions', 'cop_alur', 'cop_regul_recup', 'cop_regul_nondeduc', 'cop_regul_trop'];
+    function calculCopro() {
+      return DFISC.classifieur.calculerCopro({
+        provisionsPayees: $('cop_provisions').value,
+        dontFondsAlur: $('cop_alur').value,
+        regulRecuperable: $('cop_regul_recup').value,
+        regulNonDeductible: $('cop_regul_nondeduc').value,
+        regulTropPercu: $('cop_regul_trop').value,
+      });
+    }
+    function afficherCopro() {
+      const r = calculCopro();
+      const zone = $('cop_resultat');
+      if (r.ligne229 <= 0 && r.ligne230 <= 0) { zone.style.display = 'none'; return; }
+      zone.style.display = 'block';
+      zone.innerHTML =
+        `<strong>Ligne 229 (provisions déductibles) : ${eur(r.ligne229)}</strong> · ` +
+        `<strong>Ligne 230 (régularisation à réintégrer) : ${eur(r.ligne230)}</strong>` +
+        r.alertes.map((a) => `<br />• ${a}`).join('');
+      $('cop_btn_reporter').disabled = false;
+    }
+    champsCopro.forEach((id) => $(id).addEventListener('input', afficherCopro));
+    $('cop_btn_reporter').addEventListener('click', () => {
+      const r = calculCopro();
+      if (r.ligne229 <= 0 && r.ligne230 <= 0) return statut('Renseignez d\'abord l\'assistant copropriété.', true);
+      const copro = $('fon_copro');
+      const regul = $('fon_regul');
+      copro.value = Math.round(((parseFloat(copro.value) || 0) + r.ligne229) * 100) / 100;
+      regul.value = Math.round(((parseFloat(regul.value) || 0) + r.ligne230) * 100) / 100;
+      const coche = $('fon_actif');
+      if (!coche.checked) coche.checked = true;
+      copro.dispatchEvent(new Event('input', { bubbles: true }));
+      statut(`Copropriété reportée : ${eur(r.ligne229)} en provisions (ligne 229) et ${eur(r.ligne230)} en régularisation (ligne 230).`);
+      $('cop_btn_reporter').disabled = true;
+    });
+
     window.addEventListener('beforeunload', () => { if (worker) worker.terminate(); });
   });
 })();

@@ -265,6 +265,35 @@ assertClose(anaRegul.totaux.deductible, 0, 0.01, 'Régularisation non comptée e
 const montantTest = DFISC.classifieur.extraireMontant('Remplacement chaudière collective 12.480,00 EUR');
 assertClose(montantTest.montant, 12480, 0.01, 'Format « 12.480,00 » (points de milliers) parsé');
 
+/* ---------------- 9. Copropriété : charges dues au propriétaire ----------- */
+console.log('\n■ Copropriété — appels de fonds, fonds ALUR, lignes 229/230');
+const APPELS = `RELEVE APPELS DE FONDS 2025 - SYNDIC IMMO+
+Appel de fonds budget previsionnel T1    600,00
+Appel de fonds pour travaux ravalement votés AG  1 200,00
+Cotisation fonds de travaux ALUR          75,00
+Quote-part charges récupérables          850,00
+Quote-part propriétaire non récupérable  320,00`;
+const anaCopro = DFISC.classifieur.analyserTexte(APPELS, { mode: 'nue' });
+const catCopro = Object.fromEntries(anaCopro.items.map((i) => [i.categorie, i.montant]));
+assertEqual(catCopro.provisions_copro, 600, 'Appel budget prévisionnel → provisions (ligne 229)');
+assertEqual(catCopro.appel_travaux, 1200, 'Appel travaux votés → ligne 229 (pas 224)');
+assertEqual(catCopro.fonds_alur, 75, 'Fonds de travaux ALUR détecté (non déductible au versement)');
+assertEqual(catCopro.copro_recuperable, 850, 'Quote-part récupérable → locataire');
+assertEqual(catCopro.copro_non_recuperable, 320, 'Quote-part propriétaire → à traiter via ligne 230');
+assertClose(anaCopro.totaux.parChamp.copro, 1800, 0.01, 'Champ « provisions copro » = 600 + 1 200');
+assertClose(anaCopro.totaux.recuperable, 850, 0.01, 'Récupérable = quote-part locative');
+
+const copro = DFISC.classifieur.calculerCopro({
+  provisionsPayees: 2400, dontFondsAlur: 300,
+  regulRecuperable: 850, regulNonDeductible: 120, regulTropPercu: 60,
+});
+assertClose(copro.ligne229, 2100, 0.01, 'Ligne 229 = provisions 2 400 − fonds ALUR 300');
+assertClose(copro.ligne230, 1030, 0.01, 'Ligne 230 = 850 récupérable + 120 non déductible + 60 trop-versé');
+assertEqual(copro.alertes.length >= 2, true, 'Alertes ALUR + arrêté des comptes présentes');
+const coproVide = DFISC.classifieur.calculerCopro({ provisionsPayees: 1000 });
+assertClose(coproVide.ligne229, 1000, 0.01, 'Sans fonds ALUR : tout déductible ligne 229');
+assertEqual(coproVide.alertes.some((a) => /230/.test(a)), true, 'Rappel de la réintégration N+1 (ligne 230)');
+
 /* ---------------- Bilan --------------------------------------------------- */
 console.log(`\n${ok} tests OK, ${ko} échec(s).`);
 if (ko > 0) process.exit(1);

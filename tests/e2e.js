@@ -119,6 +119,19 @@ const assert = (cond, label, detail) => {
     await page.click('#ana_btn_annuler');
     assert((await page.inputValue('#fon_travaux')) === '', 'Annulation du report : champ travaux restauré');
 
+    /* ---------- 2 bis. Assistant copropriété (lignes 229/230) ---------- */
+    console.log('\n■ E2E — assistant charges de copropriété');
+    await page.fill('#cop_provisions', '2400');
+    await page.fill('#cop_alur', '300');
+    await page.fill('#cop_regul_recup', '850');
+    await page.fill('#cop_regul_nondeduc', '120');
+    const resCopro = await page.locator('#cop_resultat').textContent();
+    assert(/2\s*100/.test(resCopro), 'Ligne 229 affichée : 2 100 € (2 400 − 300 ALUR)', resCopro);
+    assert(/970/.test(resCopro), 'Ligne 230 affichée : 970 € (850 + 120)', resCopro);
+    await page.click('#cop_btn_reporter');
+    assert(parseFloat(await page.inputValue('#fon_copro')) === 2100, 'Champ provisions copro (229) rempli : 2 100 €');
+    assert(parseFloat(await page.inputValue('#fon_regul')) === 970, 'Champ régularisation (230) rempli : 970 €');
+
     /* ---------- 3. Non-régression : exemple complet ---------- */
     console.log('\n■ E2E — exemple complet (#exemple)');
     // Nouvelle page : un simple changement de hash ne recharge pas le document.

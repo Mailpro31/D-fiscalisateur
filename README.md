@@ -44,6 +44,21 @@ d'emprunt ou factures de travaux (JPG/PNG/PDF), ou collez leur texte. L'outil :
    mode meublé LMNP → charges BIC, où tout ce que paie le propriétaire est déductible),
    avec option « locataire parti sans rembourser » (ligne 225) et **annulation** possible.
 
+### 🏢 Assistant charges de copropriété dues au propriétaire (lignes 229/230)
+
+Le classifieur reconnaît les documents de syndic : appels de fonds du **budget prévisionnel** et
+appels pour **travaux votés** (→ provisions déductibles ligne 229), **cotisation au fonds de
+travaux ALUR** (⚠ jamais déductible au versement), **quote-part récupérable** sur le locataire
+et **quote-part propriétaire** de l'arrêté des comptes. Un assistant dédié applique ensuite le
+mécanisme officiel de la 2044 :
+
+- **ligne 229** = provisions et appels payés dans l'année − fonds de travaux ALUR ;
+- **ligne 230** (réintégration, d'après l'arrêté des comptes N-1 approuvé en AG) = part
+  récupérable sur le locataire + part non déductible + trop-versé restitué ;
+
+puis reporte les deux montants dans le simulateur. Pièces à conserver : appels de fonds,
+relevé individuel de régularisation, procès-verbal d'assemblée générale.
+
 ## 🧰 Leviers couverts
 
 ### Immobilier locatif

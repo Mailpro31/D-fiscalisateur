@@ -108,6 +108,26 @@
     { cle: 'travaux_construction', cible: 'attention', libelle: '⚠ Construction / agrandissement — NON déductible en location nue',
       re: /agrandissement|surelevation|extension|construction (neuve|d'un)|demolition|reconstruction/,
       note: 'Les dépenses de (re)construction et d\'agrandissement ne sont pas déductibles des revenus fonciers (en meublé : à immobiliser/amortir).' },
+
+    /* --- Copropriété : charges dues au propriétaire (avant les règles
+       « travaux » génériques : un appel de fonds travaux relève de la 229) --- */
+    { cle: 'copro_recuperable', cible: 'recuperable', libelle: 'Quote-part de charges RÉCUPÉRABLES du décompte (locataire)',
+      re: /charges (locatives|recuperables)|quote[- ]part locative|part locative|recuperable[s]? (aupres du |sur le )?locataire/,
+      note: 'Le décompte du syndic isole souvent la part récupérable : c\'est celle à refacturer au locataire, jamais à déduire.' },
+    { cle: 'copro_non_recuperable', cible: 'attention', libelle: '⚠ Quote-part NON récupérable du décompte (propriétaire) — sert au calcul de la ligne 230',
+      re: /charges non recuperables|non recuperable[s]?|part proprietaire|quote[- ]part proprietaire/,
+      note: 'Part définitivement à la charge du propriétaire dans l\'arrêté des comptes : utilisez l\'assistant copropriété (lignes 229/230) plutôt qu\'une déduction directe si vous déduisez déjà vos provisions.' },
+    { cle: 'appel_travaux', cible: 'deductible', ligne2044: '229', champNu: 'copro', champMeuble: 'charges',
+      libelle: 'Appels de fonds pour travaux votés (hors budget) — provisions ligne 229',
+      re: /appel[s]?( de fonds)? (pour )?travaux|travaux votes en (ag|assemblee)|travaux votes|depenses hors budget|article 14-2/,
+      note: 'Les provisions pour dépenses hors budget (travaux art. 14-2) se déduisent ligne 229 l\'année du paiement, puis se régularisent ligne 230.' },
+    { cle: 'fonds_alur', cible: 'attention', libelle: '⚠ Fonds de travaux ALUR — non déductible au versement',
+      re: /fonds (de )?travaux|loi alur|cotisation (annuelle )?(au )?fonds/,
+      note: 'La cotisation au fonds de travaux (loi ALUR) n\'est pas déductible lors du versement (définitivement acquise au syndicat) : elle ne se déduit qu\'au travers de la régularisation, quand le syndic l\'emploie à des travaux déductibles.' },
+    { cle: 'provisions_copro', cible: 'deductible', ligne2044: '229', champNu: 'copro', champMeuble: 'charges',
+      libelle: 'Provisions pour charges de copropriété (ligne 229)',
+      re: /provision[s]?|appel[s]? de (fonds|charges)|budget previsionnel|avance de tresorerie|charges de copropriete/,
+      note: 'Déduisez les provisions versées puis régularisez l\'an prochain (ligne 230) la part récupérable ou non déductible.' },
     { cle: 'renovation_energetique', cible: 'deductible', ligne2044: '224', champNu: 'travauxRenov', champMeuble: 'travaux',
       libelle: 'Travaux de rénovation énergétique (ligne 224 — plafond majoré possible)',
       re: /isolation|pompe a chaleur|chaudiere (a granules|biomasse|a condensation)|double vitrage|\bite\b|vmc double flux|audit energetique|renovation energetique|calorifugeage/,
@@ -133,10 +153,6 @@
     { cle: 'procedure', cible: 'deductible', ligne2044: '226', champNu: 'autresCharges', champMeuble: 'charges',
       libelle: 'Frais de procédure / éviction (ligne 226)',
       re: /huissier|avocat|procedure|contentieux|commandement de payer|indemnite d'eviction/ },
-    { cle: 'provisions_copro', cible: 'deductible', ligne2044: '229', champNu: 'copro', champMeuble: 'charges',
-      libelle: 'Provisions pour charges de copropriété (ligne 229)',
-      re: /provision[s]?|appel[s]? de (fonds|charges)|budget previsionnel|avance de tresorerie/,
-      note: 'Déduisez les provisions versées puis régularisez l\'an prochain (ligne 230) la part récupérable ou non déductible.' },
     { cle: 'regularisation', cible: 'attention', ligne2044: '230', champNu: 'regularisationCopro', champMeuble: 'charges',
       libelle: '⚠ Régularisation de charges N-1 (ligne 230 — à réintégrer)',
       re: /regularisation|decompte definitif|solde de charges|arrete des comptes/,
@@ -264,5 +280,50 @@
     return t;
   }
 
-  DFISC.classifieur = { analyserTexte, totaliser, extraireMontant, classifierLigne, CATEGORIES, PAR_CLE, normaliser };
+  /* ------------------------------------------------------------------ */
+  /* Assistant copropriété — mécanisme officiel des lignes 229/230        */
+  /* (notice 2044 ; art. 31 I.1° a quater CGI)                            */
+  /* ------------------------------------------------------------------ */
+  /**
+   * entree = {
+   *   provisionsPayees      : provisions/appels de fonds payés au syndic en N
+   *                           (budget prévisionnel + travaux votés hors budget),
+   *   dontFondsAlur         : part correspondant à la cotisation au fonds de
+   *                           travaux ALUR (non déductible au versement),
+   *   regulRecuperable      : dans l'arrêté des comptes N-1 approuvé en N,
+   *                           part des provisions correspondant à des charges
+   *                           RÉCUPÉRABLES sur le locataire,
+   *   regulNonDeductible    : part correspondant à des charges non déductibles
+   *                           (travaux d'agrandissement, dépenses personnelles…),
+   *   regulTropPercu        : trop-versé restitué ou porté au crédit du compte.
+   * }
+   * Retourne { ligne229, ligne230, alertes[] }
+   */
+  function calculerCopro(entree) {
+    const e = entree || {};
+    const n = (v) => (Number.isFinite(parseFloat(v)) ? parseFloat(v) : 0);
+    const provisions = Math.max(0, n(e.provisionsPayees));
+    const alur = Math.min(Math.max(0, n(e.dontFondsAlur)), provisions);
+    const ligne229 = Math.round((provisions - alur) * 100) / 100;
+    const ligne230 = Math.round((Math.max(0, n(e.regulRecuperable)) + Math.max(0, n(e.regulNonDeductible)) + Math.max(0, n(e.regulTropPercu))) * 100) / 100;
+    const alertes = [];
+    if (alur > 0) {
+      alertes.push(
+        `Cotisation au fonds de travaux ALUR (${Math.round(alur)} €) exclue de la ligne 229 : elle n'est pas déductible au versement.`
+      );
+    }
+    if (ligne230 > 0) {
+      alertes.push(
+        'Ligne 230 : réintégration calculée d\'après l\'arrêté des comptes N-1 approuvé en assemblée générale (conservez le décompte individuel du syndic).'
+      );
+    }
+    if (ligne229 > 0 && ligne230 === 0) {
+      alertes.push(
+        'N\'oubliez pas l\'an prochain de réintégrer ligne 230 la part récupérable ou non déductible de ces provisions (relevé de régularisation du syndic).'
+      );
+    }
+    return { ligne229, ligne230, alertes };
+  }
+
+  DFISC.classifieur = { analyserTexte, totaliser, extraireMontant, classifierLigne, calculerCopro, CATEGORIES, PAR_CLE, normaliser };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

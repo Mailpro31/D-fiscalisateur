@@ -152,6 +152,26 @@
                 <button type="button" id="ana_btn_annuler" class="secondaire" style="display:none">↩ Annuler le report</button>
               </div>
             </div>
+
+            <div class="sous-titre">🏢 Assistant charges de copropriété dues au propriétaire (lignes 229 / 230)</div>
+            <p class="help">Mécanisme officiel de la 2044 : vous déduisez <strong>ligne 229</strong> la totalité des
+              provisions et appels de fonds payés au syndic dans l'année (budget prévisionnel + travaux votés) —
+              <em>hors cotisation au fonds de travaux ALUR, jamais déductible au versement</em>. Puis, l'année suivante,
+              quand l'assemblée générale a approuvé l'arrêté des comptes, vous réintégrez <strong>ligne 230</strong> la
+              part de ces provisions qui correspondait à des charges <strong>récupérables sur le locataire</strong>, à
+              des charges <strong>non déductibles</strong> ou à un <strong>trop-versé restitué</strong>. Pièces : appels
+              de fonds, décompte individuel de régularisation et procès-verbal d'AG.</p>
+            <div class="grille">
+              <label class="fld"><span>Provisions + appels de fonds payés en 2025 (budget + travaux votés)</span><input type="number" id="cop_provisions" min="0" /></label>
+              <label class="fld"><span>dont cotisation au fonds de travaux ALUR <span class="hint" title="Ligne « fonds de travaux » des appels de fonds. Non déductible au moment du versement.">?</span></span><input type="number" id="cop_alur" min="0" /></label>
+              <label class="fld"><span>Arrêté des comptes 2024 : part RÉCUPÉRABLE sur le locataire</span><input type="number" id="cop_regul_recup" min="0" /></label>
+              <label class="fld"><span>Arrêté 2024 : part NON déductible (agrandissement, dépenses perso…)</span><input type="number" id="cop_regul_nondeduc" min="0" /></label>
+              <label class="fld"><span>Arrêté 2024 : trop-versé restitué / crédité</span><input type="number" id="cop_regul_trop" min="0" /></label>
+            </div>
+            <div id="cop_resultat" class="alerte info" style="display:none"></div>
+            <div class="toolbar" style="margin-top:10px">
+              <button type="button" id="cop_btn_reporter">➕ Reporter lignes 229/230 dans le simulateur</button>
+            </div>
           </div>
         </details>
 
